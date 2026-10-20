@@ -1,0 +1,59 @@
+# Agent Plasticity: reproduction and limitation tests
+
+A scaled-down reproduction of
+[Agent Plasticity: Measuring Self-Improvement Through Experience](https://arxiv.org/abs/2610.08902)
+(Singh et al., Meta Superintelligence Labs / UC Berkeley, October 2026).
+
+The paper freezes a model's weights and lets it improve only through persistent
+artifacts (Python tools, notes, skills) that it writes after each round of games.
+**Agent plasticity** is the held-out score gain per $1,000 of learning cost.
+
+The authors did not release code. This repository rebuilds the protocol from the
+paper's equations (Section 2) and appendix (Appendix B settings, Appendix I prompts).
+
+## Scope
+
+| Part | Paper | This repo |
+|---|---|---|
+| Metrics (Eq. 2–5, bootstrap) | yes | **phase 1, done first, no API cost** |
+| Games | Chess, 5×5 Go, 6×6 Hex, NetHack | 6×6 Hex and 5×5 Go (phase 2) |
+| Models | 8 frontier models | 1–2 inexpensive models |
+| Checkpoints | 20 (NetHack 40) | 5–10 |
+| Learning cost per lineage | about $1,000–3,000 (chess) | measured on a smoke run first |
+
+## Limitation tests
+
+1. Fit and threshold sensitivity of P_sat (10 pp rule, 90 % point, 3× extrapolation).
+2. Checkpoint noise: the paper runs one lineage per model; how stable is a P_sat ranking?
+3. Pricing dependence of P_sat.
+4. Consistency of the reported numbers with the stated game counts.
+5. (Phase 2) Experience versus compute: reflection with the same budget but no feedback.
+6. (Phase 2) Artifact ablation: remove the inventory, or force its use.
+
+## Layout
+
+```
+plasticity/   metric code (score, cost, fit, P_sat, bootstrap, pricing)
+tests/        pytest suite
+scripts/      experiments that write the markdown files in reports/
+reports/      results
+docs/         protocol notes taken from the paper
+```
+
+## Usage
+
+```bash
+uv sync
+uv run pytest
+uv run python scripts/validate_recovery.py
+```
+
+What you see:
+
+```
+$ uv run pytest
+.............................                                  [100%]
+29 passed
+$ uv run python scripts/validate_recovery.py
+wrote reports/01_parameter_recovery.md
+```
