@@ -82,6 +82,24 @@ def test_reported_cost_is_recorded():
     assert turn.usage.reported_cost == 0.0042
 
 
+def test_out_of_credit_stops_like_the_cap():
+    import anthropic
+    import httpx2
+
+    from harness.ledger import BudgetExceeded
+
+    class Broke:
+        def __init__(self):
+            self.messages = self
+
+        def create(self, **kwargs):
+            req = httpx2.Request("POST", "https://openrouter.ai/api/v1/messages")
+            raise anthropic.APIStatusError("no credit", response=httpx2.Response(402, request=req), body=None)
+
+    with pytest.raises(BudgetExceeded, match="402"):
+        AnthropicModel("anthropic/claude-sonnet-5.5", client=Broke()).step("s", [{"role": "user", "content": "x"}], [])
+
+
 def test_unknown_model_needs_a_price_table():
     with pytest.raises(ValueError):
         AnthropicModel("claude-unknown", client=FakeClient(None))

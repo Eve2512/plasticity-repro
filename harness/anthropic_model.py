@@ -7,6 +7,7 @@ Automatic prompt caching keeps the growing, append-only history cheap.
 
 import anthropic
 
+from harness.ledger import BudgetExceeded
 from harness.model import ModelTurn, ToolCall, ToolSpec, Usage
 from plasticity.pricing import PriceTable
 
@@ -90,15 +91,20 @@ class AnthropicModel:
         return BILLING[self.name]
 
     def step(self, system: str, messages: list[dict], tools: list[ToolSpec]) -> ModelTurn:
-        response = self.client.messages.create(
-            model=self.name,
-            max_tokens=self.max_tokens,
-            system=system,
-            messages=to_api_messages(messages),
-            tools=to_api_tools(tools),
-            output_config={"effort": self.effort},
-            cache_control={"type": "ephemeral"},
-        )
+        try:
+            response = self.client.messages.create(
+                model=self.name,
+                max_tokens=self.max_tokens,
+                system=system,
+                messages=to_api_messages(messages),
+                tools=to_api_tools(tools),
+                output_config={"effort": self.effort},
+                cache_control={"type": "ephemeral"},
+            )
+        except anthropic.APIStatusError as exc:
+            if exc.status_code == 402:  # out of credits or over the key's limit
+                raise BudgetExceeded(f"provider refused for lack of credit (HTTP 402) on {self.name}") from exc
+            raise
         u = response.usage
         self.last_usage_fields = set(u.model_dump()) if hasattr(u, "model_dump") else set(vars(u))
         read = getattr(u, "cache_read_input_tokens", 0) or 0
