@@ -24,7 +24,7 @@ from envs.hex_engine import AlphaBetaEngine
 from envs.hex_openings import OOD_LEVELS, TRAIN_ID_LEVELS, split_banks
 from harness.episode import EpisodeConfig, GameResult, play_game
 from harness.inventory import commit, empty_inventory
-from harness.ledger import Ledger
+from harness.ledger import BudgetExceeded, Ledger
 from harness.model import Model
 from harness.reflection import ReflectionConfig, reflect, write_feedback
 from plasticity.fit import fit_saturation
@@ -44,7 +44,9 @@ class RunConfig:
     ood_levels: tuple = OOD_LEVELS
     episode: EpisodeConfig = field(default_factory=EpisodeConfig)
     reflection: ReflectionConfig = field(default_factory=ReflectionConfig)
-    prices: PriceTable = field(default_factory=lambda: PriceTable(1.0, 5.0))
+    prices: PriceTable = field(default_factory=lambda: PriceTable(1.0, 5.0))  # learning cost, undiscounted
+    billing: PriceTable | None = None  # what the provider charges; defaults to `prices`
+    cap: float | None = None  # stop before any call once billed spend reaches this (USD)
 
 
 def _opponent(levels, i):
@@ -73,11 +75,21 @@ def _play_split(model, split, openings, inventory, run_dir, t, ledger, cfg) -> l
 
 def run_lineage(model: Model, run_dir: Path, cfg: RunConfig = RunConfig()) -> dict:
     run_dir.mkdir(parents=True, exist_ok=True)
-    ledger = Ledger(cfg.prices, run_dir / "ledger.jsonl")
+    ledger = Ledger(cfg.prices, run_dir / "ledger.jsonl", billing=cfg.billing, cap=cfg.cap)
     banks = split_banks(cfg.games)
     inventory = empty_inventory(run_dir / "inventories" / "checkpoint_000")
-    checkpoints, cumulative = [], 0.0
+    checkpoints: list[dict] = []
+    try:
+        _checkpoints(model, run_dir, cfg, ledger, banks, inventory, checkpoints)
+    except BudgetExceeded as exc:
+        print(f"stopped: {exc}")
+        return _write(run_dir, model, cfg, checkpoints, ledger, stopped=str(exc))
+    return _write(run_dir, model, cfg, checkpoints, ledger)
 
+
+def _checkpoints(model, run_dir, cfg, ledger, banks, inventory, checkpoints) -> None:
+    """Append one row per completed checkpoint; a row is added only when complete."""
+    cumulative = 0.0
     for t in range(cfg.rounds + 1):
         print(f"checkpoint {t}")
         row = {"t": t, "cost_cumulative": cumulative}
@@ -96,7 +108,6 @@ def run_lineage(model: Model, run_dir: Path, cfg: RunConfig = RunConfig()) -> di
             cumulative += ledger.round_cost(t, "train") + ledger.round_cost(t, "reflect")
         checkpoints.append(row)
         _write(run_dir, model, cfg, checkpoints, ledger)
-    return _write(run_dir, model, cfg, checkpoints, ledger)
 
 
 def plasticity_summary(checkpoints: list[dict], split: str = "id") -> dict:
@@ -118,14 +129,16 @@ def plasticity_summary(checkpoints: list[dict], split: str = "id") -> dict:
     return summary
 
 
-def _write(run_dir, model, cfg, checkpoints, ledger) -> dict:
+def _write(run_dir, model, cfg, checkpoints, ledger, stopped: str | None = None) -> dict:
     config = asdict(cfg)
     results = {
         "model": model.name,
         "config": config,
         "checkpoints": checkpoints,
+        "stopped": stopped,
         "total_cost": ledger.total_cost(),
         "learning_cost": ledger.learning_cost(),
+        "billed": ledger.billed(),
         "plasticity": plasticity_summary(checkpoints) if len(checkpoints) > 1 else None,
     }
     (run_dir / "results.json").write_text(json.dumps(results, indent=1, default=str))

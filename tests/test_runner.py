@@ -19,6 +19,22 @@ def naive(system, messages, tools):
     return ModelTurn("nothing to change")
 
 
+def test_spending_cap_stops_the_run_cleanly(tmp_path):
+    cfg = RunConfig(
+        rounds=2,
+        games={"train": 2, "id": 2, "ood": 2},
+        train_id_levels=(200,),
+        ood_levels=(400,),
+        episode=EpisodeConfig(max_calls=4, tool_timeout=30),
+        reflection=ReflectionConfig(max_calls=3, max_attempts=1),
+        cap=1e-6,
+    )
+    results = run_lineage(ScriptedModel(naive), tmp_path / "run", cfg)
+    assert results["stopped"] and "cap" in results["stopped"]
+    assert results["checkpoints"] == []  # no checkpoint finished
+    assert json.loads((tmp_path / "run" / "results.json").read_text())["stopped"]
+
+
 def test_lineage_layout_and_results(tmp_path):
     cfg = RunConfig(
         rounds=1,
