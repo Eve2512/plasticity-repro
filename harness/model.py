@@ -27,9 +27,10 @@ class ToolCall:
 
 @dataclass(frozen=True)
 class Usage:
-    input_tokens: int = 0
+    input_tokens: int = 0  # all prompt tokens, including cached and cache-write parts
     output_tokens: int = 0
     cached_input_tokens: int = 0  # part of input_tokens served from a cache
+    cache_write_tokens: int = 0  # part of input_tokens written to a cache
 
 
 @dataclass(frozen=True)
@@ -37,6 +38,8 @@ class ModelTurn:
     text: str
     tool_calls: tuple[ToolCall, ...] = ()
     usage: Usage = field(default_factory=Usage)
+    raw: object = None  # provider content to send back unchanged (e.g. thinking blocks)
+    stop_reason: str | None = None
 
 
 class Model(Protocol):
@@ -65,6 +68,17 @@ GET_STATE = ToolSpec("get_state", "Return the current real game state.", {"type"
 GET_LEGAL_ACTIONS = ToolSpec(
     "get_legal_actions", "Return the legal actions on the real board.", {"type": "object", "properties": {}}
 )
+
+
+def serialise_messages(messages: list[dict]) -> list[dict]:
+    """JSON-ready copy: tool calls as dicts, provider raw content dropped."""
+    out = []
+    for m in messages:
+        m = {k: v for k, v in m.items() if k != "raw"}
+        if "tool_calls" in m:
+            m["tool_calls"] = [{"id": c.id, "name": c.name, "args": c.args} for c in m["tool_calls"]]
+        out.append(m)
+    return out
 
 
 def estimate_tokens(text: str) -> int:

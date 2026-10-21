@@ -18,7 +18,7 @@ from harness import prompts
 from harness.episode import GameResult
 from harness.inventory import validate
 from harness.ledger import Ledger
-from harness.model import BASH, Model
+from harness.model import BASH, Model, serialise_messages
 from harness.sandbox import run_bash
 
 _VALIDATOR = Path(__file__).with_name("validate_tracking.py")
@@ -122,10 +122,11 @@ def reflect(
             else:
                 note = prompts.REFLECTION_BUDGET.format(used=calls, maximum=cfg.max_calls, remaining=remaining)
             messages.append({"role": "user", "content": note})
+            ledger.check_budget()
             turn = model.step(prompts.SYSTEM, messages, [BASH])
             calls += 1
             ledger.add(checkpoint, "reflect", f"checkpoint_{checkpoint:03d}_attempt_{attempt}", turn.usage)
-            messages.append({"role": "assistant", "content": turn.text, "tool_calls": list(turn.tool_calls)})
+            messages.append({"role": "assistant", "content": turn.text, "tool_calls": list(turn.tool_calls), "raw": turn.raw})
             if not turn.tool_calls:
                 break
             for call in turn.tool_calls:
@@ -146,11 +147,7 @@ def reflect(
             "calls": calls,
             "accepted": result.ok,
             "errors": list(result.errors),
-            "messages": [
-                {**m, "tool_calls": [{"id": c.id, "name": c.name, "args": c.args} for c in m["tool_calls"]]}
-                if "tool_calls" in m else m
-                for m in messages
-            ],
+            "messages": serialise_messages(messages),
         }, indent=1))
         record = {"attempt": attempt, "calls": calls, "error": result.message or None, "log": str(log)}
         history.append(record)

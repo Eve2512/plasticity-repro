@@ -19,7 +19,9 @@ from envs.hex_openings import Opening
 from harness import prompts
 from harness.game_api import HexGameSession
 from harness.ledger import Ledger
-from harness.model import BASH, GET_LEGAL_ACTIONS, GET_STATE, PYTHON, SUBMIT_ACTION, Model, ToolCall
+from harness.model import (
+    BASH, GET_LEGAL_ACTIONS, GET_STATE, PYTHON, SUBMIT_ACTION, Model, ToolCall, serialise_messages,
+)
 from harness.sandbox import PythonSession, PythonTimeout, run_bash
 
 ROLE = {"X": "red (X)", "O": "blue (O)"}
@@ -123,10 +125,11 @@ def play_game(
         while calls < cfg.max_calls and not game.done:
             budget = prompts.ACTOR_BUDGET.format(used=calls, maximum=cfg.max_calls, remaining=cfg.max_calls - calls)
             messages.append({"role": "user", "content": budget})
+            ledger.check_budget()
             turn = model.step(prompts.SYSTEM, messages, tools)
             calls += 1
             ledger.add(checkpoint, phase, game_id, turn.usage)
-            messages.append({"role": "assistant", "content": turn.text, "tool_calls": list(turn.tool_calls)})
+            messages.append({"role": "assistant", "content": turn.text, "tool_calls": list(turn.tool_calls), "raw": turn.raw})
             if not turn.tool_calls:
                 end_reason = "no_action"
                 break
@@ -143,10 +146,11 @@ def play_game(
                     break
                 recovered = True
                 messages.append({"role": "user", "content": prompts.ACTOR_TIMEOUT_RECOVERY})
+                ledger.check_budget()
                 turn = model.step(prompts.SYSTEM, messages, [GET_STATE, GET_LEGAL_ACTIONS, SUBMIT_ACTION])
                 calls += 1
                 ledger.add(checkpoint, phase, game_id, turn.usage)
-                messages.append({"role": "assistant", "content": turn.text, "tool_calls": list(turn.tool_calls)})
+                messages.append({"role": "assistant", "content": turn.text, "tool_calls": list(turn.tool_calls), "raw": turn.raw})
                 for call in turn.tool_calls:
                     out, _ = actor.run(call) if call.name != "bash" and call.name != "python" else ("not available", False)
                     messages.append({"role": "tool", "tool_call_id": call.id, "content": out})
@@ -173,18 +177,8 @@ def play_game(
         transcript_path.parent.mkdir(parents=True, exist_ok=True)
         transcript_path.write_text(
             json.dumps(
-                {"result": asdict(result), "opening": list(opening.moves), "messages": _serialisable(messages)},
+                {"result": asdict(result), "opening": list(opening.moves), "messages": serialise_messages(messages)},
                 indent=1,
             )
         )
     return result
-
-
-def _serialisable(messages):
-    out = []
-    for m in messages:
-        m = dict(m)
-        if "tool_calls" in m:
-            m["tool_calls"] = [{"id": c.id, "name": c.name, "args": c.args} for c in m["tool_calls"]]
-        out.append(m)
-    return out
