@@ -17,7 +17,7 @@ GAMES = {"train": 4, "id": 4, "ood": 2}  # the smoke run's per-checkpoint counts
 
 
 def main():
-    banks = split_banks(GAMES)
+    banks = split_banks(GAMES, source="legacy")  # the smoke run used the legacy banks
     first_legal = lambda s: s.legal_actions()[0]  # noqa: E731
     strong = AlphaBetaEngine(100_000).choose
     lines = [

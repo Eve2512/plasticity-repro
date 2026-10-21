@@ -35,7 +35,7 @@ def score_vs(level, opponent, openings):
 
 
 def main():
-    openings = split_banks({"train": GAMES})["train"]
+    openings = split_banks({"train": GAMES}, source="legacy")["train"]  # report 05 used these
     weakest = AlphaBetaEngine(TRAIN_ID_LEVELS[0]).choose
     lines = [
         "# 05 Hex engine calibration",
