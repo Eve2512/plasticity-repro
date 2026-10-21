@@ -23,6 +23,14 @@ def test_cap_raises_once_reached():
         ledger.check_budget()
 
 
+def test_reported_cost_overrides_estimate():
+    ledger = Ledger(BILLING.undiscounted(), billing=BILLING)
+    ledger.add(0, "train", "g1", Usage(1_000_000, 0, reported_cost=0.42))
+    ledger.add(0, "train", "g2", Usage(1_000_000, 0))
+    assert ledger.billed() == pytest.approx(0.42 + 1.0)
+    assert ledger.learning_cost() == pytest.approx(2.0)  # learning cost still uses token prices
+
+
 def test_unknown_phase_rejected():
     with pytest.raises(ValueError):
         Ledger(BILLING).add(0, "play", "g", Usage())

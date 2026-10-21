@@ -30,6 +30,7 @@ class Entry:
     output_tokens: int
     cached_input_tokens: int
     cache_write_tokens: int = 0
+    reported_cost: float | None = None
 
 
 class Ledger:
@@ -45,7 +46,7 @@ class Ledger:
             raise ValueError(f"unknown phase {phase!r}")
         entry = Entry(
             checkpoint, phase, episode, usage.input_tokens, usage.output_tokens,
-            usage.cached_input_tokens, usage.cache_write_tokens,
+            usage.cached_input_tokens, usage.cache_write_tokens, usage.reported_cost,
         )
         self.entries.append(entry)
         if self.path:
@@ -72,7 +73,11 @@ class Ledger:
         return self.cost([e for e in self.entries if e.phase in LEARNING_PHASES])
 
     def billed(self) -> float:
-        return self._sum(self.billing, self.entries)
+        """Provider-reported cost where available, else the billing table's estimate."""
+        return sum(
+            e.reported_cost if e.reported_cost is not None else self._sum(self.billing, [e])
+            for e in self.entries
+        )
 
     def check_budget(self) -> None:
         """Raise before a model call once billed spend has reached the cap."""

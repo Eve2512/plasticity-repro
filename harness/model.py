@@ -31,6 +31,7 @@ class Usage:
     output_tokens: int = 0
     cached_input_tokens: int = 0  # part of input_tokens served from a cache
     cache_write_tokens: int = 0  # part of input_tokens written to a cache
+    reported_cost: float | None = None  # USD the provider says it charged, when it reports one
 
 
 @dataclass(frozen=True)
