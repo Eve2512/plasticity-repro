@@ -142,6 +142,7 @@ def main():
     cfg = RunConfig(
         rounds=3,
         games={"train": 6, "id": 8, "ood": 4},
+        openings="legacy",  # report 06 was made with the legacy banks
         ood_levels=(100_000,),  # 1M nodes would make the dry run slow; the real run uses OOD_LEVELS
         episode=EpisodeConfig(max_calls=32, tool_timeout=240),
         reflection=ReflectionConfig(max_calls=50, bash_timeout=300, max_attempts=3),

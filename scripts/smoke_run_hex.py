@@ -37,7 +37,7 @@ def report(results: dict, path: Path) -> None:
     lines = [
         f"# 07 Smoke run: {results['model']} on 6x6 Hex",
         "",
-        f"Games per checkpoint: {GAMES}. Billed: ${results['billed']:.2f} (cap ${results['config']['cap']:.2f}).",
+        f"Games per checkpoint: {GAMES}, openings: {results['config']['openings']}. Billed: ${results['billed']:.2f} (cap ${results['config']['cap']:.2f}).",
         f"Learning cost, undiscounted as in the paper: ${results['learning_cost']:.2f}.",
         "",
         "| Checkpoint | Train | Held-out ID | Held-out OOD | Unfinished games | Reflection |",
@@ -65,6 +65,7 @@ def main(argv):
     parser.add_argument("--train", type=int, default=GAMES["train"], help="training games per checkpoint")
     parser.add_argument("--id", type=int, default=GAMES["id"], help="held-out ID games per checkpoint")
     parser.add_argument("--ood", type=int, default=GAMES["ood"], help="held-out OOD games per checkpoint")
+    parser.add_argument("--openings", default="contested", choices=["contested", "legacy"])
     parser.add_argument("--yes", action="store_true", help="actually call the API")
     args = parser.parse_args(argv)
     if not 0 < args.cap <= HARD_CAP:
@@ -79,7 +80,7 @@ def main(argv):
     billing = BILLING[args.model]
     games = sum(GAMES.values()) * (ROUNDS + 1)
     print(f"provider {args.provider}, model {args.model}, effort {args.effort}")
-    print(f"games per checkpoint: {GAMES}")
+    print(f"games per checkpoint: {GAMES}, openings: {args.openings}")
     print(f"{games} games (32 model calls max each) + {ROUNDS} reflection(s) (50 calls, up to 3 attempts)")
     print(f"billing ${billing.input_per_mtok}/${billing.output_per_mtok} per M input/output tokens; "
           f"stops before any call once ${args.cap:.2f} is spent")
@@ -102,6 +103,7 @@ def main(argv):
     cfg = RunConfig(
         rounds=ROUNDS,
         games=GAMES,
+        openings=args.openings,
         episode=EpisodeConfig(max_calls=32, tool_timeout=240),
         reflection=ReflectionConfig(max_calls=50, bash_timeout=300, max_attempts=3),
         prices=billing.undiscounted(),

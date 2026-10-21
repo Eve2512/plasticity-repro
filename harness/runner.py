@@ -42,6 +42,7 @@ class RunConfig:
     games: dict = field(default_factory=lambda: {"train": 40, "id": 40, "ood": 32})  # the paper's Hex counts
     train_id_levels: tuple = TRAIN_ID_LEVELS
     ood_levels: tuple = OOD_LEVELS
+    openings: str = "contested"  # or "legacy" (the 10/11-ply banks of the smoke run)
     episode: EpisodeConfig = field(default_factory=EpisodeConfig)
     reflection: ReflectionConfig = field(default_factory=ReflectionConfig)
     prices: PriceTable = field(default_factory=lambda: PriceTable(1.0, 5.0))  # learning cost, undiscounted
@@ -76,7 +77,7 @@ def _play_split(model, split, openings, inventory, run_dir, t, ledger, cfg) -> l
 def run_lineage(model: Model, run_dir: Path, cfg: RunConfig = RunConfig()) -> dict:
     run_dir.mkdir(parents=True, exist_ok=True)
     ledger = Ledger(cfg.prices, run_dir / "ledger.jsonl", billing=cfg.billing, cap=cfg.cap)
-    banks = split_banks(cfg.games)
+    banks = split_banks(cfg.games, source=cfg.openings)
     inventory = empty_inventory(run_dir / "inventories" / "checkpoint_000")
     checkpoints: list[dict] = []
     try:
