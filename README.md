@@ -4,6 +4,14 @@ A scaled-down reproduction of
 [Agent Plasticity: Measuring Self-Improvement Through Experience](https://arxiv.org/abs/2610.08902)
 (Singh et al., Meta Superintelligence Labs / UC Berkeley, October 2026).
 
+
+TLDR: they studied self-improvement in a controlled setting where agents amortize
+past experience into reusable artifacts that are inherited by future instances. they measured performance on training  at specific checkpoints and held-out environment interactions while accounting for learning cost. 
+The whole crux of this paper is that they introduce agent plasticity, the efficiency with which an agent converts 
+experience into gains in future held-out performance.
+
+
+
 The paper freezes a model's weights and lets it improve only through persistent
 artifacts (Python tools, notes, skills) that it writes after each round of games.
 **Agent plasticity** is the held-out score gain per $1,000 of learning cost.
