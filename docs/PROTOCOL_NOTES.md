@@ -40,6 +40,17 @@ the harness in phase 2.
 | Reflection budget | 50 model calls, 300 s per Bash call | same |
 | Reflection feedback | captures, liberties, self-atari, passing while behind, area margin | missed immediate wins, preventable immediate losses, connection distance |
 
+## Deviations in this reproduction
+
+| Paper | Here | Why |
+|---|---|---|
+| Native alpha–beta, 10k–1M nodes (train/ID), 10M (OOD) | Python alpha–beta, 3k–100k (train/ID), 1M (OOD) | A pure-Python engine runs about 20–30k nodes per second |
+| Isolated Python container | macOS `sandbox-exec`: no network, no reads under `/Users` or the run folder except the inventory and workspace, writes only to the session or workspace, empty environment | No container runtime on this machine |
+| Prompts in Appendix I | Paraphrased in `harness/prompts.py` (same rules, budgets, schemas) | The wording is the paper's; only the substance is reused |
+| Restricted Python (imports unavailable) | Safe-builtins whitelist; `import` raises; `load_python` reads only the inventory and session | The paper's exact whitelist is not given |
+| After a tool timeout: one recovery call | Same; play then continues with a fresh interpreter, and a second timeout forfeits | The paper does not say what follows the recovery call |
+| Opening banks, seeds | Generated from fixed seeds, disjoint across splits, filtered to balanced positions | Not published |
+
 ## Not specified in the paper
 
 - Exact Hex opening banks and the alpha–beta evaluation function.
