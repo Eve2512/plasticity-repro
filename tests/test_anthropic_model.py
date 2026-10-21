@@ -67,6 +67,21 @@ def test_refusal_returns_no_tool_calls():
     assert turn.tool_calls == () and turn.stop_reason == "refusal"
 
 
+def test_openrouter_client_never_sends_the_anthropic_key(monkeypatch):
+    monkeypatch.setenv("ANTHROPIC_API_KEY", "sk-ant-should-not-leak")
+    model = AnthropicModel("anthropic/claude-sonnet-5.5", base_url="https://openrouter.ai/api", auth_token="or-x")
+    headers = {k.lower(): v for k, v in model.client.auth_headers.items()}
+    assert headers["authorization"] == "Bearer or-x"
+    assert "sk-ant-should-not-leak" not in str(headers)
+
+
+def test_reported_cost_is_recorded():
+    resp = response("end_turn", [NS(type="text", text="hi")])
+    resp.usage.cost = 0.0042
+    turn = AnthropicModel("claude-haiku-5-5", client=FakeClient(resp)).step("s", [{"role": "user", "content": "x"}], [])
+    assert turn.usage.reported_cost == 0.0042
+
+
 def test_unknown_model_needs_a_price_table():
     with pytest.raises(ValueError):
         AnthropicModel("claude-unknown", client=FakeClient(None))

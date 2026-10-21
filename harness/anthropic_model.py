@@ -20,7 +20,13 @@ BILLING = {
     "claude-haiku-5-5": PriceTable(
         0.10, 0.50, cached_input_per_mtok=0.05, cache_write_per_mtok=0.625, long_context=(100_000, 0.50, 2.50)
     ),
+    # OpenRouter ids and prices (openrouter.ai/api/v1/models, read 2026-10-21).
+    "anthropic/claude-opus-5.5": PriceTable(4.0, 20.0, cached_input_per_mtok=0.20, cache_write_per_mtok=5.0),
+    "anthropic/claude-sonnet-5.5": PriceTable(2.0, 10.0, cached_input_per_mtok=0.10, cache_write_per_mtok=2.5),
+    "anthropic/claude-haiku-5.5": PriceTable(0.10, 0.50, cached_input_per_mtok=0.01, cache_write_per_mtok=0.125),
 }
+
+OPENROUTER_BASE_URL = "https://openrouter.ai/api"  # the SDK appends /v1/messages
 
 
 def to_api_messages(messages: list[dict]) -> list[dict]:
@@ -58,12 +64,25 @@ def to_api_tools(tools: list[ToolSpec]) -> list[dict]:
 
 
 class AnthropicModel:
-    def __init__(self, model: str, effort: str = "medium", max_tokens: int = 16000, client=None):
+    def __init__(
+        self,
+        model: str,
+        effort: str = "medium",
+        max_tokens: int = 16000,
+        client=None,
+        base_url: str | None = None,
+        auth_token: str | None = None,
+    ):
+        """`base_url` + `auth_token` (sent as a Bearer token) point the SDK at another
+        Messages-API endpoint such as OpenRouter's."""
         if model not in BILLING:
             raise ValueError(f"no price table for {model}; add one to BILLING")
         self.name = model
         self.effort = effort
         self.max_tokens = max_tokens
+        if client is None and base_url:
+            # api_key="" keeps any ANTHROPIC_API_KEY in the environment from being sent to a third party.
+            client = anthropic.Anthropic(base_url=base_url, auth_token=auth_token, api_key="", max_retries=4)
         self.client = client or anthropic.Anthropic(max_retries=4)
 
     @property
@@ -81,9 +100,14 @@ class AnthropicModel:
             cache_control={"type": "ephemeral"},
         )
         u = response.usage
+        self.last_usage_fields = set(u.model_dump()) if hasattr(u, "model_dump") else set(vars(u))
         read = getattr(u, "cache_read_input_tokens", 0) or 0
         write = getattr(u, "cache_creation_input_tokens", 0) or 0
-        usage = Usage(u.input_tokens + read + write, u.output_tokens, read, write)
+        cost = getattr(u, "cost", None)  # OpenRouter may report the charged amount
+        usage = Usage(
+            u.input_tokens + read + write, u.output_tokens, read, write,
+            reported_cost=float(cost) if isinstance(cost, (int, float)) else None,
+        )
 
         if response.stop_reason == "refusal":
             # No tool calls: the episode ends as "no_action" and counts as a loss.
