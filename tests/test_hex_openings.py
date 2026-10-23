@@ -7,7 +7,9 @@ from envs.hex_engine import AlphaBetaEngine
 from envs.hex_match import play_from
 from envs.hex_openings import (
     BANK_FILE,
+    POOLED_FILE,
     SHORT_PLIES,
+    spread_order,
     Opening,
     build_contested_banks,
     is_contested,
@@ -59,6 +61,34 @@ def test_saved_banks_cover_the_paper_sizes():
     keys = [o.key for bank in banks.values() for o in bank]
     assert len(keys) == len(set(keys)) == 112
     assert all(len(o.moves) == SHORT_PLIES[o.actor] for o in banks["train"])
+
+
+def test_spread_order_prefixes_span_the_range():
+    for n in (4, 6, 12, 20):
+        order = spread_order(n)
+        assert sorted(order) == list(range(n))
+        first = order[: max(2, n // 4)]
+        assert min(first) < n / 4 and max(first) >= n / 2
+
+
+def test_pooled_banks_are_disjoint_and_difficulty_balanced():
+    data = json.loads(POOLED_FILE.read_text())
+    banks = data["banks"]
+    keys = [tuple(e["moves"]) for by in banks.values() for es in by.values() for e in es]
+    assert len(keys) == len(set(keys)) == 112
+    for actor in (RED, BLUE):
+        means = [sum(e["difficulty"] for e in banks[s][actor]) / len(banks[s][actor]) for s in ("train", "id", "ood")]
+        assert max(means) - min(means) < 0.25
+    # the first games a run takes are mixed too, not only the easy end
+    for split in ("train", "id"):
+        first = [e["difficulty"] for e in banks[split][RED][:4]]
+        assert min(first) < max(first)
+
+
+def test_default_source_is_pooled():
+    banks = split_banks({"train": 8, "id": 12})
+    stored = json.loads(POOLED_FILE.read_text())["banks"]
+    assert [list(o.moves) for o in banks["train"][:4]] == [e["moves"] for e in stored["train"][RED][:4]]
 
 
 def test_missing_bank_file(tmp_path):
