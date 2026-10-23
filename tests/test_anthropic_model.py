@@ -100,6 +100,69 @@ def test_out_of_credit_stops_like_the_cap():
         AnthropicModel("anthropic/claude-sonnet-5.5", client=Broke()).step("s", [{"role": "user", "content": "x"}], [])
 
 
+class Flaky:
+    """Fails `n` times with `error`, then answers."""
+
+    def __init__(self, n, error):
+        self.n, self.error, self.calls = n, error, 0
+        self.messages = self
+
+    def create(self, **kwargs):
+        self.calls += 1
+        if self.calls <= self.n:
+            raise self.error()
+        return response("end_turn", [NS(type="text", text="ok")])
+
+
+def _connection_error():
+    import anthropic
+    import httpx2
+
+    return anthropic.APIConnectionError(request=httpx2.Request("POST", "https://openrouter.ai/api/v1/messages"))
+
+
+def _status_error(code):
+    import anthropic
+    import httpx2
+
+    req = httpx2.Request("POST", "https://openrouter.ai/api/v1/messages")
+    return lambda: anthropic.APIStatusError("x", response=httpx2.Response(code, request=req), body=None)
+
+
+def test_waits_out_a_connection_outage():
+    client = Flaky(3, _connection_error)
+    model = AnthropicModel("anthropic/claude-sonnet-5.5", client=client)
+    waits = []
+    model.sleep = waits.append
+    turn = model.step("s", [{"role": "user", "content": "x"}], [])
+    assert turn.text == "ok" and client.calls == 4 and waits == [30, 60, 120]
+
+
+def test_gives_up_after_the_last_wait():
+    import anthropic
+
+    from harness.anthropic_model import OUTAGE_WAITS
+
+    client = Flaky(100, _connection_error)
+    model = AnthropicModel("anthropic/claude-sonnet-5.5", client=client)
+    model.sleep = lambda s: None
+    with pytest.raises(anthropic.APIConnectionError):
+        model.step("s", [{"role": "user", "content": "x"}], [])
+    assert client.calls == len(OUTAGE_WAITS) + 1
+
+
+def test_retries_transient_status_but_not_bad_request():
+    import anthropic
+
+    model = AnthropicModel("anthropic/claude-sonnet-5.5", client=Flaky(2, _status_error(503)))
+    model.sleep = lambda s: None
+    assert model.step("s", [{"role": "user", "content": "x"}], []).text == "ok"
+    model = AnthropicModel("anthropic/claude-sonnet-5.5", client=Flaky(1, _status_error(400)))
+    model.sleep = lambda s: None
+    with pytest.raises(anthropic.APIStatusError):
+        model.step("s", [{"role": "user", "content": "x"}], [])
+
+
 def test_unknown_model_needs_a_price_table():
     with pytest.raises(ValueError):
         AnthropicModel("claude-unknown", client=FakeClient(None))

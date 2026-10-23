@@ -5,6 +5,8 @@ Earlier assistant turns are sent back exactly as the API returned them
 Automatic prompt caching keeps the growing, append-only history cheap.
 """
 
+import time
+
 import anthropic
 
 from harness.ledger import BudgetExceeded
@@ -28,6 +30,9 @@ BILLING = {
 }
 
 OPENROUTER_BASE_URL = "https://openrouter.ai/api"  # the SDK appends /v1/messages
+
+OUTAGE_WAITS = (30, 60, 120, 240, 300, 300, 300, 300, 300)  # seconds between extra attempts, ~32 min in total
+RETRY_STATUS = {408, 409, 429, 500, 502, 503, 504, 529}  # transient provider errors
 
 
 def to_api_messages(messages: list[dict]) -> list[dict]:
@@ -85,26 +90,39 @@ class AnthropicModel:
             # api_key="" keeps any ANTHROPIC_API_KEY in the environment from being sent to a third party.
             client = anthropic.Anthropic(base_url=base_url, auth_token=auth_token, api_key="", max_retries=4)
         self.client = client or anthropic.Anthropic(max_retries=4)
+        self.sleep = time.sleep  # replaced in tests
 
     @property
     def billing(self) -> PriceTable:
         return BILLING[self.name]
 
     def step(self, system: str, messages: list[dict], tools: list[ToolSpec]) -> ModelTurn:
-        try:
-            response = self.client.messages.create(
-                model=self.name,
-                max_tokens=self.max_tokens,
-                system=system,
-                messages=to_api_messages(messages),
-                tools=to_api_tools(tools),
-                output_config={"effort": self.effort},
-                cache_control={"type": "ephemeral"},
-            )
-        except anthropic.APIStatusError as exc:
-            if exc.status_code == 402:  # out of credits or over the key's limit
-                raise BudgetExceeded(f"provider refused for lack of credit (HTTP 402) on {self.name}") from exc
-            raise
+        # The SDK already retries a few times within about a minute; these longer waits
+        # ride out a lost connection (a train tunnel, a sleeping laptop) of up to ~30 minutes.
+        for wait in (*OUTAGE_WAITS, None):
+            try:
+                response = self.client.messages.create(
+                    model=self.name,
+                    max_tokens=self.max_tokens,
+                    system=system,
+                    messages=to_api_messages(messages),
+                    tools=to_api_tools(tools),
+                    output_config={"effort": self.effort},
+                    cache_control={"type": "ephemeral"},
+                )
+                break
+            except anthropic.APIConnectionError as exc:  # includes timeouts
+                if wait is None:
+                    raise
+                problem = type(exc).__name__
+            except anthropic.APIStatusError as exc:
+                if exc.status_code == 402:  # out of credits or over the key's limit
+                    raise BudgetExceeded(f"provider refused for lack of credit (HTTP 402) on {self.name}") from exc
+                if exc.status_code not in RETRY_STATUS or wait is None:
+                    raise
+                problem = f"HTTP {exc.status_code}"
+            print(f"[{self.name}] {problem}; retrying in {wait} s", flush=True)
+            self.sleep(wait)
         u = response.usage
         self.last_usage_fields = set(u.model_dump()) if hasattr(u, "model_dump") else set(vars(u))
         read = getattr(u, "cache_read_input_tokens", 0) or 0
