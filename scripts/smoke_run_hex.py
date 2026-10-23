@@ -65,7 +65,7 @@ def main(argv):
     parser.add_argument("--train", type=int, default=GAMES["train"], help="training games per checkpoint")
     parser.add_argument("--id", type=int, default=GAMES["id"], help="held-out ID games per checkpoint")
     parser.add_argument("--ood", type=int, default=GAMES["ood"], help="held-out OOD games per checkpoint")
-    parser.add_argument("--openings", default="contested", choices=["contested", "legacy"])
+    parser.add_argument("--openings", default="pooled", choices=["pooled", "contested", "legacy"])
     parser.add_argument("--yes", action="store_true", help="actually call the API")
     args = parser.parse_args(argv)
     if not 0 < args.cap <= HARD_CAP:

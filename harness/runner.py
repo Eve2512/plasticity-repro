@@ -42,7 +42,7 @@ class RunConfig:
     games: dict = field(default_factory=lambda: {"train": 40, "id": 40, "ood": 32})  # the paper's Hex counts
     train_id_levels: tuple = TRAIN_ID_LEVELS
     ood_levels: tuple = OOD_LEVELS
-    openings: str = "contested"  # or "legacy" (the 10/11-ply banks of the smoke run)
+    openings: str = "pooled"  # or "contested" (lineage A) or "legacy" (smoke run)
     episode: EpisodeConfig = field(default_factory=EpisodeConfig)
     reflection: ReflectionConfig = field(default_factory=ReflectionConfig)
     prices: PriceTable = field(default_factory=lambda: PriceTable(1.0, 5.0))  # learning cost, undiscounted
