@@ -49,7 +49,7 @@ the harness in phase 2.
 | Prompts in Appendix I | Paraphrased in `harness/prompts.py` (same rules, budgets, schemas) | The wording is the paper's; only the substance is reused |
 | Restricted Python (imports unavailable) | Safe-builtins whitelist; `import` raises; `load_python` reads only the inventory and session | The paper's exact whitelist is not given |
 | After a tool timeout: one recovery call | Same; play then continues with a fresh interpreter, and a second timeout forfeits | The paper does not say what follows the recovery call |
-| 10-ply (red) / 11-ply (blue) openings from fixed banks | 4-ply (red) / 5-ply (blue) "contested" openings, saved in `data/hex_openings_contested.json`: kept only if always playing the first legal action loses and a 30k-node engine wins, both against the weakest train opponent | With 10/11 plies the smoke run's games lasted 2–7 actor moves and blue openings were much harder (reports 07–08). Banks are not published |
+| 10-ply (red) / 11-ply (blue) openings from fixed banks | 4-ply (red) / 5-ply (blue) openings from one shared pool (`data/hex_openings_pooled.json`): kept only if always playing the first legal action loses and a 30k-node engine wins against the weakest train opponent, scored for difficulty by engines only, and dealt to train / ID / OOD by colour and difficulty | With 10/11 plies the smoke run's games lasted 2–7 actor moves and blue was much harder (reports 07–09). Per-split seeds then made the ID bank harder than train (lineage A: Sonnet 8/8 train, 2/12 ID; report 10). Banks are not published |
 
 ## Not specified in the paper
 
