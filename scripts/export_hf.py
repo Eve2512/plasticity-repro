@@ -29,8 +29,13 @@ RUNS = [
              "A few checkpoint-1 games were played before the stop; they are flagged checkpoint_complete = false."},
     {"run_id": "lineage_a2", "dir": "lineage_a2", "openings": "pooled", "report": "reports/10_lineage_a2.md",
      "note": "Main run: 8 checkpoints, 8/12/4 games per checkpoint, pooled openings."},
+    {"run_id": "sonnet_reflect_high", "dir": "sonnet_reflect_high", "openings": "pooled",
+     "report": "reports/12_comparison.md", "reflect_effort": "high",
+     "note": "As lineage_a2, but reflection at effort high (games at medium)."},
+    {"run_id": "haiku_r20", "dir": "haiku_r20", "openings": "pooled", "report": "reports/12_comparison.md",
+     "note": "Claude Haiku 5.5, 20 rounds (the paper's checkpoint count), 20/24/8 games per checkpoint."},
 ]
-EFFORT = "medium"  # all three runs
+EFFORT = "medium"  # actor effort in every run
 PROVIDER = "openrouter"
 
 # --- scrubbing --------------------------------------------------------------
@@ -93,6 +98,7 @@ def run_row(run, results):
     cfg = results["config"]
     return {
         "run_id": run["run_id"], "model": results["model"], "provider": PROVIDER, "effort": EFFORT,
+        "reflect_effort": run.get("reflect_effort", EFFORT),
         "openings": run["openings"], "rounds": cfg["rounds"], "games_per_checkpoint": cfg["games"],
         "train_id_levels": cfg["train_id_levels"], "ood_levels": cfg["ood_levels"],
         "actor_max_calls": cfg["episode"]["max_calls"], "reflection_max_calls": cfg["reflection"]["max_calls"],
@@ -181,6 +187,9 @@ def main():
     tables = {name: [] for name in ("runs", "checkpoints", "games", "reflections", "inventories", "calls", "openings")}
     for run in RUNS:
         run_dir = ROOT / "runs" / run["dir"]
+        if not (run_dir / "results.json").exists():
+            print(f"skipping {run['run_id']}: no results yet")
+            continue
         results = json.loads((run_dir / "results.json").read_text())
         usage = ledger_by_episode(run_dir)
         tables["runs"].append(run_row(run, results))
