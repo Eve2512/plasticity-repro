@@ -6,44 +6,29 @@
     ... --dry                                                          # scripted model, no API calls
 
 Spending stops before any call once the billed amount reaches --cap (never
-above $20); completed checkpoints are kept. Keys come from the environment or
+above $45); completed checkpoints are kept. Keys come from the environment or
 the git-ignored .env: OPENROUTER_API_KEY (default provider) or ANTHROPIC_API_KEY.
 The paid report goes to reports/10_<name>.md; a dry run writes only to runs/.
 """
 
 import argparse
-import itertools
 import json
 import sys
 from pathlib import Path
 
-from harness.anthropic_model import BILLING, OPENROUTER_BASE_URL, AnthropicModel
+from harness.anthropic_model import BILLING, ModelSpec
 from harness.episode import EpisodeConfig
 from harness.keys import load_key
-from harness.model import ModelTurn, ScriptedModel, ToolCall
 from harness.reflection import ReflectionConfig
 from harness.runner import RunConfig, reset, run_lineage
+from harness.scripted import first_legal_factory
 
 ROOT = Path(__file__).resolve().parent.parent
-HARD_CAP = 20.00
+HARD_CAP = 45.00  # the user's approved budget for this phase (2026-10-25)
 PROVIDERS = {
     "openrouter": ("OPENROUTER_API_KEY", lambda m: m.startswith("anthropic/")),
     "anthropic": ("ANTHROPIC_API_KEY", lambda m: m.startswith("claude-")),
 }
-_ids = itertools.count()
-
-
-def scripted(system, messages, tools):
-    """Dry-run model: plays the first legal action in one Python call; reflects by doing nothing."""
-    if messages[0]["content"].startswith("A new hex game"):
-        if any(m["role"] == "assistant" for m in messages):
-            return ModelTurn("done")
-        code = ("s = game_api['get_state']()\nwhile not s['winner']:\n"
-                "    s = game_api['submit_action'](game_api['get_legal_actions']()[0])")
-        return ModelTurn("", (ToolCall(f"d{next(_ids)}", "python", {"code": code}),))
-    return ModelTurn("No changes.")
-
-
 def artifact_use(run_dir: Path, t: int) -> tuple[int, int, int, int]:
     """Games at checkpoint t that read, loaded, or called an entrypoint of a saved artifact; and the game count.
 
@@ -123,6 +108,8 @@ def main(argv):
     parser.add_argument("--openings", default="pooled", choices=["pooled", "contested", "legacy"])
     parser.add_argument("--cap", type=float, default=17.00)
     parser.add_argument("--name", default="lineage_a")
+    parser.add_argument("--workers", type=int, default=1, help="games played at once")
+    parser.add_argument("--resume", action="store_true", help="continue runs/<name> after a crash")
     group = parser.add_mutually_exclusive_group()
     group.add_argument("--yes", action="store_true", help="paid run")
     group.add_argument("--dry", action="store_true", help="scripted model, no API calls")
@@ -139,27 +126,25 @@ def main(argv):
     total = sum(games.values()) * (args.rounds + 1)
     print(f"{args.model} via {args.provider}, effort {args.effort}, openings {args.openings}")
     print(f"checkpoints 0-{args.rounds}, games per checkpoint {games}: {total} games + {args.rounds} reflections")
-    print(f"stops before any call once ${args.cap:.2f} is billed")
+    print(f"stops before any call once ${args.cap:.2f} is billed; {args.workers} game(s) at once")
     if not (args.yes or args.dry):
         print("plan only: add --yes for the paid run or --dry for a scripted run")
         return 0
 
     billing = BILLING[args.model]
     if args.dry:
-        model = ScriptedModel(scripted, name=f"scripted ({args.model} prices)")
+        factory = first_legal_factory(name=f"scripted ({args.model} prices)")
     else:
         key = load_key(key_name)
         if not key:
             print(f"no {key_name} in the environment or .env")
             return 1
-        if args.provider == "openrouter":
-            model = AnthropicModel(args.model, effort=args.effort, base_url=OPENROUTER_BASE_URL, auth_token=key)
-        else:
-            from anthropic import Anthropic
-            model = AnthropicModel(args.model, effort=args.effort, client=Anthropic(api_key=key, max_retries=4))
+        factory = ModelSpec(args.model, key=key, effort=args.effort, provider=args.provider)
+    model = factory()
 
     run_dir = ROOT / "runs" / (f"{args.name}_dry" if args.dry else args.name)
-    reset(run_dir)
+    if not args.resume:
+        reset(run_dir)
     cfg = RunConfig(
         rounds=args.rounds,
         games=games,
@@ -169,8 +154,9 @@ def main(argv):
         prices=billing.undiscounted(),
         billing=billing,
         cap=args.cap,
+        workers=args.workers,
     )
-    results = run_lineage(model, run_dir, cfg)
+    results = run_lineage(model, run_dir, cfg, model_factory=factory, resume=args.resume)
     out = run_dir / "report.md" if args.dry else ROOT / "reports" / f"10_{args.name}.md"
     report(results, run_dir, out)
     print(f"wrote {out.relative_to(ROOT)}")

@@ -6,6 +6,7 @@ Automatic prompt caching keeps the growing, append-only history cheap.
 """
 
 import time
+from dataclasses import dataclass, field
 
 import anthropic
 
@@ -33,6 +34,22 @@ OPENROUTER_BASE_URL = "https://openrouter.ai/api"  # the SDK appends /v1/message
 
 OUTAGE_WAITS = (30, 60, 120, 240, 300, 300, 300, 300, 300)  # seconds between extra attempts, ~32 min in total
 RETRY_STATUS = {408, 409, 429, 500, 502, 503, 504, 529}  # transient provider errors
+
+
+@dataclass(frozen=True)
+class ModelSpec:
+    """Picklable recipe for an AnthropicModel, so worker processes can build their own."""
+
+    model: str
+    key: str = field(repr=False)
+    effort: str = "medium"
+    provider: str = "openrouter"  # or "anthropic"
+
+    def __call__(self) -> "AnthropicModel":
+        if self.provider == "openrouter":
+            return AnthropicModel(self.model, effort=self.effort, base_url=OPENROUTER_BASE_URL, auth_token=self.key)
+        return AnthropicModel(self.model, effort=self.effort,
+                              client=anthropic.Anthropic(api_key=self.key, max_retries=4))
 
 
 def to_api_messages(messages: list[dict]) -> list[dict]:

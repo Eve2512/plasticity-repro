@@ -163,6 +163,17 @@ def test_retries_transient_status_but_not_bad_request():
         model.step("s", [{"role": "user", "content": "x"}], [])
 
 
+def test_model_spec_pickles_and_hides_the_key():
+    import pickle
+
+    from harness.anthropic_model import ModelSpec
+
+    spec = ModelSpec("anthropic/claude-haiku-5.5", key="sk-or-secret", effort="low")
+    assert "sk-or-secret" not in repr(spec)
+    model = pickle.loads(pickle.dumps(spec))()
+    assert model.name == "anthropic/claude-haiku-5.5" and model.effort == "low"
+
+
 def test_unknown_model_needs_a_price_table():
     with pytest.raises(ValueError):
         AnthropicModel("claude-unknown", client=FakeClient(None))

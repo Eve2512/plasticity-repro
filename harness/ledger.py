@@ -34,24 +34,40 @@ class Entry:
 
 
 class Ledger:
-    def __init__(self, prices: PriceTable, path=None, billing: PriceTable | None = None, cap: float | None = None):
+    def __init__(self, prices: PriceTable, path=None, billing: PriceTable | None = None, cap: float | None = None,
+                 prior_billed: float = 0.0):
+        """`prior_billed`: money already spent on work that was discarded (counts toward the cap only)."""
         self.prices = prices
         self.billing = billing or prices
         self.cap = cap
+        self.prior_billed = prior_billed
         self.entries: list[Entry] = []
         self.path = Path(path) if path else None
+
+    @staticmethod
+    def read(path) -> list[Entry]:
+        p = Path(path)
+        if not p.exists():
+            return []
+        return [Entry(**json.loads(line)) for line in p.read_text().splitlines() if line.strip()]
 
     def add(self, checkpoint: int, phase: str, episode: str, usage: Usage) -> None:
         if phase not in ("train", "reflect", "eval"):
             raise ValueError(f"unknown phase {phase!r}")
-        entry = Entry(
+        self.add_entry(Entry(
             checkpoint, phase, episode, usage.input_tokens, usage.output_tokens,
             usage.cached_input_tokens, usage.cache_write_tokens, usage.reported_cost,
-        )
+        ))
+
+    def add_entry(self, entry: Entry, write: bool = True) -> None:
         self.entries.append(entry)
-        if self.path:
+        if self.path and write:
             with self.path.open("a") as fh:
                 fh.write(json.dumps(asdict(entry)) + "\n")
+
+    def entry_cost(self, entry: Entry) -> float:
+        """What the provider charged for one entry (reported, else estimated)."""
+        return entry.reported_cost if entry.reported_cost is not None else self._sum(self.billing, [entry])
 
     @staticmethod
     def _sum(table: PriceTable, entries) -> float:
@@ -74,10 +90,7 @@ class Ledger:
 
     def billed(self) -> float:
         """Provider-reported cost where available, else the billing table's estimate."""
-        return sum(
-            e.reported_cost if e.reported_cost is not None else self._sum(self.billing, [e])
-            for e in self.entries
-        )
+        return self.prior_billed + sum(self.entry_cost(e) for e in self.entries)
 
     def check_budget(self) -> None:
         """Raise before a model call once billed spend has reached the cap."""
