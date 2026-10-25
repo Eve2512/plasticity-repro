@@ -1,0 +1,126 @@
+---
+pretty_name: "Agent Plasticity on 6x6 Hex: Claude Sonnet 5.5 traces"
+license: cc-by-4.0
+language:
+- en
+tags:
+- agents
+- self-improvement
+- tool-use
+- reflection
+- hex
+- reproduction
+size_categories:
+- n<1K
+configs:
+- config_name: runs
+  data_files: data/runs.jsonl
+- config_name: checkpoints
+  data_files: data/checkpoints.jsonl
+- config_name: games
+  data_files: data/games.jsonl
+- config_name: reflections
+  data_files: data/reflections.jsonl
+- config_name: inventories
+  data_files: data/inventories.jsonl
+- config_name: calls
+  data_files: data/calls.jsonl
+- config_name: openings
+  data_files: data/openings.jsonl
+---
+
+# Agent Plasticity on 6x6 Hex: Claude Sonnet 5.5 traces
+
+Agent traces from a scaled-down, independent reproduction of
+[Agent Plasticity: Measuring Self-Improvement Through Experience](https://arxiv.org/abs/2610.08902)
+(Singh et al., 2026). The paper's authors did not release code or data; this harness was
+rebuilt from the paper's equations and appendix.
+
+A frozen model plays 6×6 Hex against an alpha-beta engine. Between checkpoints the same
+model reflects on its training games and edits a persistent inventory (Python tools,
+notes, tracking files) that the next checkpoint inherits. Held-out games are never shown
+to reflection.
+
+## What is in it
+
+| Config | Rows | One row is |
+|---|---|---|
+| `runs` | 3 | a lineage: settings, cost, plasticity fit |
+| `checkpoints` | 11 | a checkpoint: wins per split, learning cost, reflection outcome |
+| `games` | 238 | a game: opening, moves, per-move diagnostics, token use, **full transcript** |
+| `reflections` | 11 | a reflection attempt: full transcript, validator result |
+| `inventories` | 39 | a file the agent saved, at a checkpoint (code, notes, tracking JSON) |
+| `calls` | 2,564 | a model call: tokens (input, cached, cache write, output) and charged cost |
+| `openings` | 234 | a starting position from the legacy, contested or pooled bank |
+
+Runs (all `anthropic/claude-sonnet-5.5` via OpenRouter, effort `medium`):
+
+| `run_id` | Checkpoints | Games per checkpoint (train / ID / OOD) | Openings | Note |
+|---|---|---|---|---|
+| `smoke` | 0–1 | 4 / 4 / 2 | legacy (10/11-ply) | pipeline and cost check |
+| `lineage_a` | 0 (+2 games of 1) | 8 / 12 / 4 | contested | stopped: the ID bank was harder than train |
+| `lineage_a2` | 0–7 | 8 / 12 / 4 | pooled | main run |
+
+## Main result
+
+`lineage_a2` shows **no plasticity**: held-out ID stays between 50 % and 67 % across eight
+checkpoints and the saturation fit finds no significant rise. The agent ran its own saved
+tool in most games from checkpoint 2 on, but each reflection used 4–6 of its 50 calls,
+never revised the tool, and filed every loss under one failure mode. Details:
+`reports/10_lineage_a2.md` in the source repository.
+
+## Fields worth knowing
+
+- `games.messages`: the actor's conversation. Assistant turns hold visible text and tool
+  calls (`bash`, `python`, `submit_action`); `tool` turns hold outputs.
+- `games.diagnostics`: per actor move, missed immediate wins, preventable immediate
+  losses, and connection distance before and after (the feedback reflection received).
+- `games.checkpoint_complete`: false for the two `lineage_a` games played after the
+  checkpoint it stopped at.
+- `inventories`: one row per file per checkpoint, so artifact changes can be diffed.
+- `calls.cost_usd`: OpenRouter's reported charge for that call.
+
+## How it differs from the paper
+
+- 6×6 Hex only; one model; 8 checkpoints instead of 20; far fewer games per checkpoint.
+- Opponent: a pure-Python alpha-beta engine at 3k–100k nodes per move (train and ID) and
+  1M (OOD), scaled down from the paper's 10k–1M and 10M.
+- Openings: 4/5-ply instead of 10/11-ply (except `smoke`), filtered so a weak player loses
+  and a 30k-node engine wins, and for `lineage_a2` dealt to the splits by engine-scored
+  difficulty.
+- Prompts are paraphrased from the paper's Appendix I (same rules, budgets and schemas).
+- Sandbox: macOS `sandbox-exec` instead of a container.
+
+## Limits
+
+- **No hidden reasoning.** The API returns thinking blocks empty by default, so transcripts
+  contain actions and visible text only.
+- **Small samples.** 12 held-out ID games per checkpoint; differences under about 20 points
+  between halves of the run are not detectable.
+- **One lineage per setting**; no seeds repeated.
+- **Not every dollar is here.** About $0.07 from a first start of `lineage_a2` (restarted to
+  add connection retries) and $0.002 from an endpoint probe are not included.
+
+## Privacy and provenance
+
+Local file paths are replaced by `<repo>` and `/Users/<user>`. The export script stops if
+any string looks like an API key, bearer token or email address. No personal data is in
+the games; the model only saw game states and its own files.
+
+Model outputs are from Claude Sonnet 5.5 (Anthropic) accessed through OpenRouter; check
+both providers' terms before reuse.
+
+## Citation
+
+Please cite the original paper:
+
+```
+@article{singh2026agentplasticity,
+  title  = {Agent Plasticity: Measuring Self-Improvement Through Experience},
+  author = {Singh, Harman and Bakhtin, Anton and Shao, Rulin and Synnaeve, Gabriel and
+            Kulikov, Ilia and Fergus, Rob and Arora, Sanjeev and Keutzer, Kurt and
+            Weston, Jason and Mahajan, Anuj and Goyal, Anirudh},
+  journal = {arXiv preprint arXiv:2610.08902},
+  year   = {2026}
+}
+```
