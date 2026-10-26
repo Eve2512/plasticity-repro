@@ -39,6 +39,21 @@ paper's equations (Section 2) and appendix (Appendix B settings, Appendix I prom
 5. (Phase 2) Experience versus compute: reflection with the same budget but no feedback.
 6. (Phase 2) Artifact ablation: remove the inventory, or force its use.
 
+## Results so far
+
+| Lineage | Model | Reflection effort | Held-out ID, first → second half | Report |
+|---|---|---|---|---|
+| `lineage_a2`, `sonnet_medium_rep2` | Sonnet 5.5 | medium | 59 % → 62 % (no plasticity) | [10](reports/10_lineage_a2.md), [12](reports/12_comparison.md) |
+| `sonnet_reflect_high`, `..._rep2` | Sonnet 5.5 | high | 73 % → **83 %** | [12](reports/12_comparison.md) |
+| `haiku_r20` (21 checkpoints) | Haiku 5.5 | medium | 32 % → 31 % (no plasticity) | [12](reports/12_comparison.md) |
+
+With two lineages per condition, high-effort reflection ends at 83 % held-out ID against
+62 % for medium (z = 3.25, p = 0.001), from the same starting point. At medium effort the
+reflector rarely read its game logs and wrote at most one version of a tool; at high effort it revised
+its code and the actor used it in most games. Phase 1 (reports 01–04) found that a single
+lineage's P_sat is noisy and that the paper's 10-point rule alone lets false rises
+through; both shaped how these results are tested.
+
 ## Layout
 
 ```
