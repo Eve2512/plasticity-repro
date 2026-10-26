@@ -41,6 +41,8 @@ paper's equations (Section 2) and appendix (Appendix B settings, Appendix I prom
 
 ## Results so far
 
+Full write-up with methods and limitations: [reports/TECHNICAL_REPORT.md](reports/TECHNICAL_REPORT.md).
+
 | Lineage | Model | Reflection effort | Held-out ID, first → second half | Report |
 |---|---|---|---|---|
 | `lineage_a2`, `sonnet_medium_rep2` | Sonnet 5.5 | medium | 59 % → 62 % (no plasticity) | [10](reports/10_lineage_a2.md), [12](reports/12_comparison.md) |
