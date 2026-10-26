@@ -32,6 +32,12 @@ RUNS = [
     {"run_id": "sonnet_reflect_high", "dir": "sonnet_reflect_high", "openings": "pooled",
      "report": "reports/12_comparison.md", "reflect_effort": "high",
      "note": "As lineage_a2, but reflection at effort high (games at medium)."},
+    {"run_id": "sonnet_reflect_high_rep2", "dir": "sonnet_reflect_high_rep2", "openings": "pooled",
+     "report": "reports/12_comparison.md", "reflect_effort": "high",
+     "note": "Replicate of sonnet_reflect_high (same settings, new model samples)."},
+    {"run_id": "sonnet_medium_rep2", "dir": "sonnet_medium_rep2", "openings": "pooled",
+     "report": "reports/12_comparison.md",
+     "note": "Replicate of lineage_a2 (reflection at medium effort), played with 3 workers."},
     {"run_id": "haiku_r20", "dir": "haiku_r20", "openings": "pooled", "report": "reports/12_comparison.md",
      "note": "Claude Haiku 5.5, 20 rounds (the paper's checkpoint count), 20/24/8 games per checkpoint."},
 ]
@@ -41,6 +47,7 @@ PROVIDER = "openrouter"
 # --- scrubbing --------------------------------------------------------------
 
 _USERS = re.compile(r"/Users/[^/\s\"'\\]+")
+_UNSCRUBBED = re.compile(r"/Users/(?!<user>)[^/\s\"'\\]+|/var/folders/(?!<tmp>)[^/\s\"'\\]+")
 _TEMP = re.compile(r"/var/folders/[^/\s\"'\\]+/[^/\s\"'\\]+")  # per-user macOS temp folder
 _SECRETS = {
     "openrouter key": re.compile(r"sk-or-[A-Za-z0-9_-]{8,}"),
@@ -49,7 +56,8 @@ _SECRETS = {
     "key assignment": re.compile(r"(OPENROUTER|ANTHROPIC)_API_KEY\s*=\s*\S+"),
     "aws key": re.compile(r"AKIA[0-9A-Z]{16}"),
     "github token": re.compile(r"gh[pousr]_[A-Za-z0-9]{20,}"),
-    "email": re.compile(r"[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}"),
+    # not right after a backslash, so "\n@decorator.name" in escaped code is not an address
+    "email": re.compile(r"(?<![\\A-Za-z0-9._%+-])[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}"),
 }
 
 
@@ -204,8 +212,7 @@ def main():
     for name, rows in tables.items():
         lines = [json.dumps(scrub(r), ensure_ascii=False) for r in rows]
         for i, line in enumerate(lines):
-            if ("evahill" in line or "/Users/" in line.replace("/Users/<user>", "")
-                    or "/var/folders/" in line.replace("/var/folders/<tmp>", "")):
+            if "evahill" in line or _UNSCRUBBED.search(line):
                 problems.append(f"{name} row {i}: unscrubbed path or name")
             for hit in secret_hits(line):
                 problems.append(f"{name} row {i}: {hit}")

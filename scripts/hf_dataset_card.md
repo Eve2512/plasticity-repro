@@ -11,7 +11,7 @@ tags:
 - hex
 - reproduction
 size_categories:
-- n<1K
+- 1K<n<10K
 configs:
 - config_name: runs
   data_files: data/runs.jsonl
@@ -45,29 +45,36 @@ to reflection.
 
 | Config | Rows | One row is |
 |---|---|---|
-| `runs` | 3 | a lineage: settings, cost, plasticity fit |
-| `checkpoints` | 11 | a checkpoint: wins per split, learning cost, reflection outcome |
-| `games` | 238 | a game: opening, moves, per-move diagnostics, token use, **full transcript** |
-| `reflections` | 11 | a reflection attempt: full transcript, validator result |
-| `inventories` | 39 | a file the agent saved, at a checkpoint (code, notes, tracking JSON) |
-| `calls` | 2,564 | a model call: tokens (input, cached, cache write, output) and charged cost |
+| `runs` | 7 | a lineage: settings, cost, plasticity fit |
+| `checkpoints` | 56 | a checkpoint: wins per split, learning cost, reflection outcome |
+| `games` | 1,906 | a game: opening, moves, per-move diagnostics, token use, **full transcript** |
+| `reflections` | 53 | a reflection attempt: full transcript, validator result |
+| `inventories` | 227 | a file the agent saved, at a checkpoint (code, notes, tracking JSON) |
+| `calls` | 23,919 | a model call: tokens (input, cached, cache write, output) and charged cost |
 | `openings` | 234 | a starting position from the legacy, contested or pooled bank |
 
-Runs (all `anthropic/claude-sonnet-5.5` via OpenRouter, effort `medium`):
+Runs (via OpenRouter; games always at effort `medium`):
 
-| `run_id` | Checkpoints | Games per checkpoint (train / ID / OOD) | Openings | Note |
-|---|---|---|---|---|
-| `smoke` | 0–1 | 4 / 4 / 2 | legacy (10/11-ply) | pipeline and cost check |
-| `lineage_a` | 0 (+2 games of 1) | 8 / 12 / 4 | contested | stopped: the ID bank was harder than train |
-| `lineage_a2` | 0–7 | 8 / 12 / 4 | pooled | main run |
+| `run_id` | Model | Reflection effort | Checkpoints | Games per checkpoint (train / ID / OOD) | Openings |
+|---|---|---|---|---|---|
+| `smoke` | Sonnet 5.5 | medium | 0–1 | 4 / 4 / 2 | legacy (10/11-ply) |
+| `lineage_a` | Sonnet 5.5 | medium | 0 (+2 games of 1) | 8 / 12 / 4 | contested (stopped: ID bank harder than train) |
+| `lineage_a2` | Sonnet 5.5 | medium | 0–7 | 8 / 12 / 4 | pooled |
+| `sonnet_medium_rep2` | Sonnet 5.5 | medium | 0–7 | 8 / 12 / 4 | pooled |
+| `sonnet_reflect_high` | Sonnet 5.5 | high | 0–7 | 8 / 12 / 4 | pooled |
+| `sonnet_reflect_high_rep2` | Sonnet 5.5 | high | 0–7 | 8 / 12 / 4 | pooled |
+| `haiku_r20` | Haiku 5.5 | medium | 0–20 | 20 / 24 / 8 | pooled |
 
 ## Main result
 
-`lineage_a2` shows **no plasticity**: held-out ID stays between 50 % and 67 % across eight
-checkpoints and the saturation fit finds no significant rise. The agent ran its own saved
-tool in most games from checkpoint 2 on, but each reflection used 4–6 of its 50 calls,
-never revised the tool, and filed every loss under one failure mode. Details:
-`reports/10_lineage_a2.md` in the source repository.
+With reflection at effort `medium`, Sonnet 5.5 shows **no plasticity** in two lineages
+(held-out ID 59 % → 62 % between checkpoints 0–3 and 4–7): the reflector used 5–6 of its
+50 calls, rarely read its game logs, and wrote at most one version of a tool. With
+reflection at effort `high`, two lineages rise from 73 % to **83 %**, revising their code
+and running it in most games. From the same start (15/24 each at checkpoint 0), high ends
+at 83 % against 62 % for medium over checkpoints 4–7 (z = 3.25, p = 0.001). Haiku 5.5 stays
+near 31 % over 21 checkpoints despite busy reflection. Details: `reports/12_comparison.md`
+in the source repository.
 
 ## Fields worth knowing
 
@@ -97,7 +104,7 @@ never revised the tool, and filed every loss under one failure mode. Details:
   contain actions and visible text only.
 - **Small samples.** 12 held-out ID games per checkpoint; differences under about 20 points
   between halves of the run are not detectable.
-- **One lineage per setting**; no seeds repeated.
+- **Two lineages** per reflection-effort condition for Sonnet, one for Haiku.
 - **Not every dollar is here.** About $0.07 from a first start of `lineage_a2` (restarted to
   add connection retries) and $0.002 from an endpoint probe are not included.
 
