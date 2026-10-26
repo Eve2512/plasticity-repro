@@ -2,21 +2,21 @@
 Add a `trace_viewer` config to Eve39570/agent-plasticity-hex.
 
 Dry run (writes and checks the files on your Mac, uploads nothing):
-    uv run --with datasets --with huggingface_hub python add_trace_viewer.py
+    uv run --with huggingface_hub python add_trace_viewer.py
 
 Push (also uploads the files and updates the dataset card):
-    uv run --with datasets --with huggingface_hub python add_trace_viewer.py --push
+    uv run --with huggingface_hub python add_trace_viewer.py --push
 """
 
 # ---------------------------------------------------------------- 1. Imports
 import argparse
+import fnmatch
 import json
 import shutil
 import sys
 from pathlib import Path
 
-from datasets import load_dataset
-from huggingface_hub import DatasetCard, HfApi
+from huggingface_hub import DatasetCard, HfApi, hf_hub_download
 
 # ---------------------------------------------------------------- 2. Settings
 REPO = "Eve39570/agent-plasticity-hex"
@@ -115,12 +115,59 @@ def convert(messages):
 
 
 # ---------------------------------------------------------------- 5. Names, writing, checking
-def find_column(ds, name):
+def data_file_patterns(config):
+    """Return the file patterns from one config's data_files, in any YAML shape."""
+    df = config.get("data_files")
+    items = df if isinstance(df, list) else list(df.values()) if isinstance(df, dict) else [df]
+    patterns = []
+    for item in items:
+        if isinstance(item, dict):
+            item = item.get("path")
+        if isinstance(item, str):
+            patterns.append(item)
+        elif isinstance(item, list):
+            patterns.extend(item)
+    return patterns
+
+
+def load_rows(config_name):
+    """Download the raw JSON files of one config and return its rows as dicts.
+    This skips the schema in the dataset card, so a wrong type there cannot stop us."""
+    card = DatasetCard.load(REPO)
+    config = next(
+        (c for c in (card.data.get("configs") or []) if c.get("config_name") == config_name),
+        None,
+    )
+    if config is None:
+        sys.exit(f"No config named '{config_name}' in the dataset card.")
+    patterns = data_file_patterns(config)
+    all_files = HfApi().list_repo_files(REPO, repo_type="dataset")
+    files = sorted(f for f in all_files if any(fnmatch.fnmatch(f, p) for p in patterns))
+    if not files:
+        sys.exit(f"No files match {patterns} for config '{config_name}'.")
+
+    rows = []
+    for name in files:
+        local = hf_hub_download(REPO, name, repo_type="dataset")
+        text = Path(local).read_text(encoding="utf-8")
+        if name.endswith(".jsonl"):
+            rows.extend(json.loads(line) for line in text.splitlines() if line.strip())
+        elif name.endswith(".json"):
+            data = json.loads(text)
+            rows.extend(data if isinstance(data, list) else [data])
+        else:
+            print(f"Skipped {name}: not .json or .jsonl")
+    print(f"{config_name}: {len(rows)} rows from {len(files)} file(s)")
+    return rows
+
+
+def find_column(rows, name):
+    columns = list(rows[0].keys())
     for col in TRANSCRIPT_COLUMNS:
-        if col in ds.column_names:
+        if col in columns:
             return col
     sys.exit(
-        f"No transcript column in '{name}'. Columns are: {ds.column_names}. "
+        f"No transcript column in '{name}'. Columns are: {columns}. "
         "Add the correct name to TRANSCRIPT_COLUMNS."
     )
 
@@ -176,8 +223,8 @@ def main():
     args = parser.parse_args()
 
     # 6a. Load the two tables that hold transcripts
-    games = load_dataset(REPO, "games", split="train")
-    reflections = load_dataset(REPO, "reflections", split="train")
+    games = load_rows("games")
+    reflections = load_rows("reflections")
     g_col = find_column(games, "games")
     r_col = find_column(reflections, "reflections")
 
