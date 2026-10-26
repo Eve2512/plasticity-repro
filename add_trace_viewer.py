@@ -174,7 +174,7 @@ def find_column(rows, name):
 
 def session_id(row, i, kind):
     parts = [str(row.get("run_id") or "run"), kind]
-    for key in ("checkpoint", "episode", "attempt"):
+    for key in ("checkpoint", "game_id", "episode", "attempt"):
         if row.get(key) is not None:
             parts.append(str(row[key]))
     parts.append(f"{i:05d}")  # the row number makes each id unique
@@ -185,7 +185,7 @@ def session_name(row, kind):
     parts = [str(row.get("run_id") or "run"), kind]
     if row.get("checkpoint") is not None:
         parts.append(f"checkpoint {row['checkpoint']}")
-    for key in ("episode", "attempt"):
+    for key in ("game_id", "episode", "attempt"):
         if row.get(key) is not None:
             parts.append(str(row[key]))
     return " · ".join(parts)
