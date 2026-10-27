@@ -1,0 +1,869 @@
+{
+ "version": 1,
+ "plies": {
+  "X": 2,
+  "O": 3
+ },
+ "rule": "contested (first-legal player loses and GNU Go level 10 wins vs level 5); difficulty = level 10's mean final margin vs levels [5, 7, 9]; dealt to splits by colour and difficulty; train is a reservoir",
+ "candidates_tried": 169,
+ "banks": {
+  "id": {
+   "X": [
+    {
+     "moves": [
+      "B3",
+      "A2"
+     ],
+     "difficulty": -3.17
+    },
+    {
+     "moves": [
+      "C1",
+      "A2"
+     ],
+     "difficulty": 15.5
+    },
+    {
+     "moves": [
+      "E3",
+      "A2"
+     ],
+     "difficulty": 8.83
+    },
+    {
+     "moves": [
+      "D3",
+      "A4"
+     ],
+     "difficulty": 15.5
+    },
+    {
+     "moves": [
+      "C2",
+      "C3"
+     ],
+     "difficulty": 0.83
+    },
+    {
+     "moves": [
+      "C3",
+      "D1"
+     ],
+     "difficulty": 15.5
+    },
+    {
+     "moves": [
+      "A4",
+      "C1"
+     ],
+     "difficulty": 15.5
+    },
+    {
+     "moves": [
+      "D4",
+      "C2"
+     ],
+     "difficulty": 15.5
+    },
+    {
+     "moves": [
+      "B3",
+      "D5"
+     ],
+     "difficulty": 15.5
+    },
+    {
+     "moves": [
+      "E3",
+      "E5"
+     ],
+     "difficulty": 15.5
+    }
+   ],
+   "O": [
+    {
+     "moves": [
+      "E1",
+      "A3",
+      "D2"
+     ],
+     "difficulty": -1.5
+    },
+    {
+     "moves": [
+      "A5",
+      "D5",
+      "A3"
+     ],
+     "difficulty": 34.5
+    },
+    {
+     "moves": [
+      "D3",
+      "A4",
+      "C1"
+     ],
+     "difficulty": 10.5
+    },
+    {
+     "moves": [
+      "C5",
+      "A2",
+      "E1"
+     ],
+     "difficulty": 34.5
+    },
+    {
+     "moves": [
+      "A4",
+      "D3",
+      "C2"
+     ],
+     "difficulty": 5.17
+    },
+    {
+     "moves": [
+      "C1",
+      "B4",
+      "B3"
+     ],
+     "difficulty": 34.5
+    },
+    {
+     "moves": [
+      "B3",
+      "E4",
+      "E3"
+     ],
+     "difficulty": 19.17
+    },
+    {
+     "moves": [
+      "D1",
+      "D3",
+      "C2"
+     ],
+     "difficulty": 34.5
+    },
+    {
+     "moves": [
+      "A3",
+      "D4",
+      "E3"
+     ],
+     "difficulty": 34.5
+    },
+    {
+     "moves": [
+      "E3",
+      "B1",
+      "E2"
+     ],
+     "difficulty": 34.5
+    }
+   ]
+  },
+  "ood": {
+   "X": [
+    {
+     "moves": [
+      "C2",
+      "D2"
+     ],
+     "difficulty": -0.5
+    },
+    {
+     "moves": [
+      "C2",
+      "A4"
+     ],
+     "difficulty": 15.5
+    },
+    {
+     "moves": [
+      "A2",
+      "A5"
+     ],
+     "difficulty": 15.5
+    },
+    {
+     "moves": [
+      "D3",
+      "B2"
+     ],
+     "difficulty": 15.5
+    },
+    {
+     "moves": [
+      "B1",
+      "E1"
+     ],
+     "difficulty": 15.5
+    },
+    {
+     "moves": [
+      "E2",
+      "D5"
+     ],
+     "difficulty": 15.5
+    }
+   ],
+   "O": [
+    {
+     "moves": [
+      "C5",
+      "B5",
+      "C4"
+     ],
+     "difficulty": 1.17
+    },
+    {
+     "moves": [
+      "B1",
+      "D4",
+      "E1"
+     ],
+     "difficulty": 34.5
+    },
+    {
+     "moves": [
+      "C1",
+      "A5",
+      "D1"
+     ],
+     "difficulty": 14.5
+    },
+    {
+     "moves": [
+      "C5",
+      "B4",
+      "D4"
+     ],
+     "difficulty": 34.5
+    },
+    {
+     "moves": [
+      "A2",
+      "C3",
+      "D5"
+     ],
+     "difficulty": 34.5
+    },
+    {
+     "moves": [
+      "D5",
+      "C3",
+      "A1"
+     ],
+     "difficulty": 34.5
+    }
+   ]
+  },
+  "train": {
+   "X": [
+    {
+     "moves": [
+      "A1",
+      "A3"
+     ],
+     "difficulty": -17.83
+    },
+    {
+     "moves": [
+      "E5",
+      "E3"
+     ],
+     "difficulty": -17.83
+    },
+    {
+     "moves": [
+      "D3",
+      "E4"
+     ],
+     "difficulty": -3.17
+    },
+    {
+     "moves": [
+      "C3",
+      "E1"
+     ],
+     "difficulty": -0.5
+    },
+    {
+     "moves": [
+      "C5",
+      "B2"
+     ],
+     "difficulty": -0.5
+    },
+    {
+     "moves": [
+      "D5",
+      "D4"
+     ],
+     "difficulty": -0.5
+    },
+    {
+     "moves": [
+      "B2",
+      "B3"
+     ],
+     "difficulty": 4.83
+    },
+    {
+     "moves": [
+      "B2",
+      "C2"
+     ],
+     "difficulty": 4.83
+    },
+    {
+     "moves": [
+      "D3",
+      "E2"
+     ],
+     "difficulty": 6.17
+    },
+    {
+     "moves": [
+      "C5",
+      "E5"
+     ],
+     "difficulty": 7.5
+    },
+    {
+     "moves": [
+      "A2",
+      "E5"
+     ],
+     "difficulty": 15.5
+    },
+    {
+     "moves": [
+      "A3",
+      "B1"
+     ],
+     "difficulty": 15.5
+    },
+    {
+     "moves": [
+      "A3",
+      "E1"
+     ],
+     "difficulty": 15.5
+    },
+    {
+     "moves": [
+      "A4",
+      "B1"
+     ],
+     "difficulty": 15.5
+    },
+    {
+     "moves": [
+      "A4",
+      "C5"
+     ],
+     "difficulty": 15.5
+    },
+    {
+     "moves": [
+      "A5",
+      "D1"
+     ],
+     "difficulty": 15.5
+    },
+    {
+     "moves": [
+      "B1",
+      "C5"
+     ],
+     "difficulty": 15.5
+    },
+    {
+     "moves": [
+      "B2",
+      "A4"
+     ],
+     "difficulty": 15.5
+    },
+    {
+     "moves": [
+      "B4",
+      "A3"
+     ],
+     "difficulty": 15.5
+    },
+    {
+     "moves": [
+      "B4",
+      "B2"
+     ],
+     "difficulty": 15.5
+    },
+    {
+     "moves": [
+      "B4",
+      "E2"
+     ],
+     "difficulty": 15.5
+    },
+    {
+     "moves": [
+      "B5",
+      "C1"
+     ],
+     "difficulty": 15.5
+    },
+    {
+     "moves": [
+      "C2",
+      "A1"
+     ],
+     "difficulty": 15.5
+    },
+    {
+     "moves": [
+      "C2",
+      "D4"
+     ],
+     "difficulty": 15.5
+    },
+    {
+     "moves": [
+      "C2",
+      "E3"
+     ],
+     "difficulty": 15.5
+    },
+    {
+     "moves": [
+      "C3",
+      "C5"
+     ],
+     "difficulty": 15.5
+    },
+    {
+     "moves": [
+      "C4",
+      "A5"
+     ],
+     "difficulty": 15.5
+    },
+    {
+     "moves": [
+      "C4",
+      "C1"
+     ],
+     "difficulty": 15.5
+    },
+    {
+     "moves": [
+      "C4",
+      "E5"
+     ],
+     "difficulty": 15.5
+    },
+    {
+     "moves": [
+      "C5",
+      "A3"
+     ],
+     "difficulty": 15.5
+    },
+    {
+     "moves": [
+      "D3",
+      "C4"
+     ],
+     "difficulty": 15.5
+    },
+    {
+     "moves": [
+      "D4",
+      "A2"
+     ],
+     "difficulty": 15.5
+    },
+    {
+     "moves": [
+      "D4",
+      "A5"
+     ],
+     "difficulty": 15.5
+    },
+    {
+     "moves": [
+      "D4",
+      "B2"
+     ],
+     "difficulty": 15.5
+    },
+    {
+     "moves": [
+      "D5",
+      "A3"
+     ],
+     "difficulty": 15.5
+    },
+    {
+     "moves": [
+      "D5",
+      "E2"
+     ],
+     "difficulty": 15.5
+    },
+    {
+     "moves": [
+      "E2",
+      "A2"
+     ],
+     "difficulty": 15.5
+    },
+    {
+     "moves": [
+      "E2",
+      "E3"
+     ],
+     "difficulty": 15.5
+    },
+    {
+     "moves": [
+      "E4",
+      "E1"
+     ],
+     "difficulty": 15.5
+    },
+    {
+     "moves": [
+      "E5",
+      "A5"
+     ],
+     "difficulty": 15.5
+    }
+   ],
+   "O": [
+    {
+     "moves": [
+      "C3",
+      "A2",
+      "B1"
+     ],
+     "difficulty": -10.17
+    },
+    {
+     "moves": [
+      "C3",
+      "A4",
+      "A1"
+     ],
+     "difficulty": -9.5
+    },
+    {
+     "moves": [
+      "B3",
+      "E3",
+      "B1"
+     ],
+     "difficulty": 1.17
+    },
+    {
+     "moves": [
+      "D2",
+      "D1",
+      "B4"
+     ],
+     "difficulty": 1.17
+    },
+    {
+     "moves": [
+      "E3",
+      "B1",
+      "C3"
+     ],
+     "difficulty": 1.17
+    },
+    {
+     "moves": [
+      "B2",
+      "D5",
+      "A1"
+     ],
+     "difficulty": 4.5
+    },
+    {
+     "moves": [
+      "E1",
+      "B5",
+      "C2"
+     ],
+     "difficulty": 6.5
+    },
+    {
+     "moves": [
+      "B1",
+      "B4",
+      "B3"
+     ],
+     "difficulty": 9.83
+    },
+    {
+     "moves": [
+      "B3",
+      "E5",
+      "C1"
+     ],
+     "difficulty": 9.83
+    },
+    {
+     "moves": [
+      "B1",
+      "A4",
+      "B4"
+     ],
+     "difficulty": 10.17
+    },
+    {
+     "moves": [
+      "D5",
+      "B3",
+      "D4"
+     ],
+     "difficulty": 14.5
+    },
+    {
+     "moves": [
+      "A3",
+      "E1",
+      "A2"
+     ],
+     "difficulty": 17.83
+    },
+    {
+     "moves": [
+      "A4",
+      "E2",
+      "B5"
+     ],
+     "difficulty": 17.83
+    },
+    {
+     "moves": [
+      "B5",
+      "B2",
+      "C4"
+     ],
+     "difficulty": 18.5
+    },
+    {
+     "moves": [
+      "E4",
+      "E3",
+      "C1"
+     ],
+     "difficulty": 24.5
+    },
+    {
+     "moves": [
+      "B2",
+      "A4",
+      "A2"
+     ],
+     "difficulty": 25.83
+    },
+    {
+     "moves": [
+      "B3",
+      "D3",
+      "B1"
+     ],
+     "difficulty": 27.83
+    },
+    {
+     "moves": [
+      "A2",
+      "E4",
+      "E1"
+     ],
+     "difficulty": 34.5
+    },
+    {
+     "moves": [
+      "A4",
+      "B3",
+      "E1"
+     ],
+     "difficulty": 34.5
+    },
+    {
+     "moves": [
+      "A4",
+      "B4",
+      "A1"
+     ],
+     "difficulty": 34.5
+    },
+    {
+     "moves": [
+      "A4",
+      "C3",
+      "B3"
+     ],
+     "difficulty": 34.5
+    },
+    {
+     "moves": [
+      "A4",
+      "D3",
+      "A3"
+     ],
+     "difficulty": 34.5
+    },
+    {
+     "moves": [
+      "B1",
+      "B4",
+      "E3"
+     ],
+     "difficulty": 34.5
+    },
+    {
+     "moves": [
+      "B4",
+      "C2",
+      "A3"
+     ],
+     "difficulty": 34.5
+    },
+    {
+     "moves": [
+      "B5",
+      "E3",
+      "A4"
+     ],
+     "difficulty": 34.5
+    },
+    {
+     "moves": [
+      "C1",
+      "A4",
+      "A5"
+     ],
+     "difficulty": 34.5
+    },
+    {
+     "moves": [
+      "C1",
+      "B4",
+      "E3"
+     ],
+     "difficulty": 34.5
+    },
+    {
+     "moves": [
+      "C1",
+      "D4",
+      "D1"
+     ],
+     "difficulty": 34.5
+    },
+    {
+     "moves": [
+      "C3",
+      "B3",
+      "E5"
+     ],
+     "difficulty": 34.5
+    },
+    {
+     "moves": [
+      "C4",
+      "B4",
+      "A1"
+     ],
+     "difficulty": 34.5
+    },
+    {
+     "moves": [
+      "C5",
+      "C2",
+      "B2"
+     ],
+     "difficulty": 34.5
+    },
+    {
+     "moves": [
+      "C5",
+      "E2",
+      "D5"
+     ],
+     "difficulty": 34.5
+    },
+    {
+     "moves": [
+      "D1",
+      "A2",
+      "A1"
+     ],
+     "difficulty": 34.5
+    },
+    {
+     "moves": [
+      "D1",
+      "B2",
+      "E4"
+     ],
+     "difficulty": 34.5
+    },
+    {
+     "moves": [
+      "D2",
+      "B2",
+      "E5"
+     ],
+     "difficulty": 34.5
+    },
+    {
+     "moves": [
+      "D2",
+      "D4",
+      "C4"
+     ],
+     "difficulty": 34.5
+    },
+    {
+     "moves": [
+      "D2",
+      "E2",
+      "E5"
+     ],
+     "difficulty": 34.5
+    },
+    {
+     "moves": [
+      "E1",
+      "B1",
+      "E3"
+     ],
+     "difficulty": 34.5
+    },
+    {
+     "moves": [
+      "E5",
+      "D5",
+      "D2"
+     ],
+     "difficulty": 34.5
+    },
+    {
+     "moves": [
+      "E5",
+      "E3",
+      "D1"
+     ],
+     "difficulty": 34.5
+    }
+   ]
+  }
+ }
+}
