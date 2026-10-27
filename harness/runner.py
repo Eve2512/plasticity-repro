@@ -1,7 +1,8 @@
-"""Run one agent lineage (M, I_0) ... (M, I_T) on Hex (Section 2.1, 3.1).
+"""Run one agent lineage (M, I_0) ... (M, I_T) on Hex or Go (Section 2.1, 3.1).
 
 At each checkpoint the current inventory plays train, held-out ID and held-out
-OOD games, each in a fresh episode. Reflection on the training games produces
+OOD games, each in a fresh episode. Go draws new training openings and seeds at
+every checkpoint; held-out openings stay fixed. Reflection on the training games produces
 the next inventory. Held-out games are stored where neither the actor nor the
 reflector can read them.
 
@@ -15,13 +16,12 @@ Run directory:
 
 import json
 import shutil
-from dataclasses import asdict, dataclass, field
+from dataclasses import asdict, dataclass, field, replace
 from pathlib import Path
 
 import numpy as np
 
-from envs.hex_engine import AlphaBetaEngine
-from envs.hex_openings import OOD_LEVELS, TRAIN_ID_LEVELS, split_banks
+from envs.games import GAMES
 from harness.episode import EpisodeConfig, GameResult, play_game
 from harness.inventory import commit, empty_inventory
 from harness.ledger import BudgetExceeded, Ledger
@@ -40,9 +40,10 @@ SPLITS = ("train", "id", "ood")
 class RunConfig:
     rounds: int = 5  # learning rounds T: checkpoints 0..T
     games: dict = field(default_factory=lambda: {"train": 40, "id": 40, "ood": 32})  # the paper's Hex counts
-    train_id_levels: tuple = TRAIN_ID_LEVELS
-    ood_levels: tuple = OOD_LEVELS
-    openings: str = "pooled"  # or "contested" (lineage A) or "legacy" (smoke run)
+    game: str = "hex"  # or "go"
+    train_id_levels: tuple | None = None  # None: the game's levels (envs/games.py)
+    ood_levels: tuple | None = None
+    openings: str = "pooled"  # Hex also: "contested" (lineage A) or "legacy" (smoke run)
     episode: EpisodeConfig = field(default_factory=EpisodeConfig)
     reflection: ReflectionConfig = field(default_factory=ReflectionConfig)
     prices: PriceTable = field(default_factory=lambda: PriceTable(1.0, 5.0))  # learning cost, undiscounted
@@ -57,7 +58,7 @@ class _Job:
     index: int
     game_id: str
     opening: object  # Opening
-    opponent_nodes: int
+    opponent_level: int  # Hex: nodes per move; Go: GNU Go level
     session: Path
     transcript: Path
 
@@ -68,27 +69,28 @@ def _jobs(banks, t, run_dir, cfg) -> list[_Job]:
         levels = cfg.ood_levels if split == "ood" else cfg.train_id_levels
         base = run_dir / "games" / f"checkpoint_{t:03d}" / split
         for i, opening in enumerate(banks[split]):
-            colour = "red" if opening.actor == "X" else "blue"
+            colour = GAMES[cfg.game].colours[opening.actor]
             game_id = f"checkpoint_{t:03d}_{split}_g{i + 1:02d}_{colour}"
             jobs.append(_Job(split, i, game_id, opening, levels[i % len(levels)],
                              base / "sessions" / game_id, base / f"{game_id}.json"))
     return jobs
 
 
-def _play(model, job: _Job, inventory, run_dir, t, ledger, episode_cfg) -> GameResult:
+def _play(model, job: _Job, inventory, run_dir, t, ledger, episode_cfg, game: str) -> GameResult:
+    spec = GAMES[game]
     return play_game(
-        model, job.game_id, job.opening, AlphaBetaEngine(job.opponent_nodes).choose, inventory, job.session,
+        model, job.game_id, job.opening, spec.opponent(job.opponent_level, job.opening), inventory, job.session,
         hidden=[run_dir], ledger=ledger, checkpoint=t,
         phase="train" if job.split == "train" else "eval",
-        cfg=episode_cfg, transcript_path=job.transcript,
+        cfg=episode_cfg, transcript_path=job.transcript, spec=spec,
     )
 
 
-def _worker(model_factory, job, inventory, run_dir, t, episode_cfg, prices, billing, remaining):
+def _worker(model_factory, job, inventory, run_dir, t, episode_cfg, game, prices, billing, remaining):
     """One game in a separate process; returns (result or None, ledger entries)."""
     ledger = Ledger(prices, billing=billing, cap=remaining)
     try:
-        return _play(model_factory(), job, inventory, run_dir, t, ledger, episode_cfg), ledger.entries
+        return _play(model_factory(), job, inventory, run_dir, t, ledger, episode_cfg, game), ledger.entries
     except BudgetExceeded:
         return None, ledger.entries
 
@@ -103,7 +105,7 @@ def _play_checkpoint(model, model_factory, jobs, inventory, run_dir, t, ledger, 
 
     if cfg.workers <= 1 or model_factory is None:
         for job in jobs:
-            record(job, _play(model, job, inventory, run_dir, t, ledger, cfg.episode))
+            record(job, _play(model, job, inventory, run_dir, t, ledger, cfg.episode, cfg.game))
     else:
         from concurrent.futures import FIRST_COMPLETED, ProcessPoolExecutor, wait
         from multiprocessing import get_context
@@ -120,7 +122,7 @@ def _play_checkpoint(model, model_factory, jobs, inventory, run_dir, t, ledger, 
                     job = queue.pop(0)
                     remaining = None if ledger.cap is None else ledger.cap - ledger.billed()
                     fut = pool.submit(_worker, model_factory, job, inventory, run_dir, t,
-                                      cfg.episode, ledger.prices, ledger.billing, remaining)
+                                      cfg.episode, cfg.game, ledger.prices, ledger.billing, remaining)
                     pending[fut] = job
                 if not pending:
                     break
@@ -151,7 +153,10 @@ def run_lineage(model: Model, run_dir: Path, cfg: RunConfig = RunConfig(), model
     each building its own model from the picklable `model_factory()`.
     """
     run_dir.mkdir(parents=True, exist_ok=True)
-    banks = split_banks(cfg.games, source=cfg.openings)
+    spec = GAMES[cfg.game]
+    cfg = replace(cfg, train_id_levels=tuple(cfg.train_id_levels or spec.train_id_levels),
+                  ood_levels=tuple(cfg.ood_levels or spec.ood_levels))
+    spec.banks(cfg.games, cfg.openings, 0)  # fail early when a bank file is missing
     checkpoints: list[dict] = []
     prior_billed = 0.0
     if resume and (run_dir / "results.json").exists():
@@ -168,7 +173,7 @@ def run_lineage(model: Model, run_dir: Path, cfg: RunConfig = RunConfig(), model
     inventory = (run_dir / "inventories" / f"checkpoint_{start:03d}") if start else \
         empty_inventory(run_dir / "inventories" / "checkpoint_000")
     try:
-        _checkpoints(model, model_factory, run_dir, cfg, ledger, banks, inventory, checkpoints, start)
+        _checkpoints(model, model_factory, run_dir, cfg, ledger, inventory, checkpoints, start)
     except BudgetExceeded as exc:
         print(f"stopped: {exc}")
         return _write(run_dir, model, cfg, checkpoints, ledger, stopped=str(exc))
@@ -178,8 +183,8 @@ def run_lineage(model: Model, run_dir: Path, cfg: RunConfig = RunConfig(), model
 def _prepare_resume(run_dir: Path, cfg: RunConfig) -> tuple[list[dict], float]:
     """Keep completed checkpoints; clear the unfinished one and set its spend aside."""
     prev = json.loads((run_dir / "results.json").read_text())
-    for key in ("rounds", "games", "openings", "train_id_levels", "ood_levels"):
-        old, new = prev["config"].get(key), asdict(cfg)[key]
+    for key in ("game", "rounds", "games", "openings", "train_id_levels", "ood_levels"):
+        old, new = prev["config"].get(key, "hex" if key == "game" else None), asdict(cfg)[key]
         if json.loads(json.dumps(old)) != json.loads(json.dumps(new)):
             raise ValueError(f"cannot resume: {key} was {old}, now {new}")
     checkpoints = prev["checkpoints"]
@@ -203,12 +208,13 @@ def _prepare_resume(run_dir: Path, cfg: RunConfig) -> tuple[list[dict], float]:
     return checkpoints, prior
 
 
-def _checkpoints(model, model_factory, run_dir, cfg, ledger, banks, inventory, checkpoints, start=0) -> None:
+def _checkpoints(model, model_factory, run_dir, cfg, ledger, inventory, checkpoints, start=0) -> None:
     """Append one row per completed checkpoint; a row is added only when complete."""
     cumulative = sum(ledger.round_cost(u, "train") + ledger.round_cost(u, "reflect") for u in range(start))
     for t in range(start, cfg.rounds + 1):
         print(f"checkpoint {t}", flush=True)
         row = {"t": t, "cost_cumulative": cumulative}
+        banks = GAMES[cfg.game].banks(cfg.games, cfg.openings, t)
         played = _play_checkpoint(model, model_factory, _jobs(banks, t, run_dir, cfg), inventory, run_dir, t,
                                   ledger, cfg)
         for split in SPLITS:
@@ -216,7 +222,7 @@ def _checkpoints(model, model_factory, run_dir, cfg, ledger, banks, inventory, c
                           "unfinished": sum(r.end_reason != "finished" for r, _, _ in played[split])}
         if t < cfg.rounds:
             feedback = run_dir / "feedback" / f"checkpoint_{t:03d}"
-            write_feedback(feedback, played["train"])
+            write_feedback(feedback, played["train"], GAMES[cfg.game])
             outcome = reflect(model, inventory, feedback, run_dir / "reflect" / f"checkpoint_{t:03d}",
                               hidden=[run_dir], ledger=ledger, checkpoint=t, cfg=cfg.reflection)
             row["reflection"] = {"accepted": outcome.accepted, "attempts": outcome.attempts}

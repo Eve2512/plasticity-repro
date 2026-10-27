@@ -13,7 +13,7 @@ import sys
 from dataclasses import dataclass, field
 from pathlib import Path
 
-from envs.hex_feedback import diagnose_game
+from envs.games import HEX, Game
 from harness import prompts
 from harness.episode import GameResult
 from harness.inventory import validate
@@ -39,8 +39,8 @@ class ReflectionOutcome:
     attempts: list = field(default_factory=list)  # [{"attempt", "calls", "error"}]
 
 
-def write_feedback(feedback: Path, games: list[tuple[GameResult, Path | None, Path | None]]) -> None:
-    """Training games only: moves, diagnostics, result, transcript, session files."""
+def write_feedback(feedback: Path, games: list[tuple[GameResult, Path | None, Path | None]], spec: Game = HEX) -> None:
+    """Training games only: moves, diagnostics (spec.diagnose), result, transcript, session files."""
     games_dir = feedback / "games"
     games_dir.mkdir(parents=True, exist_ok=True)
     summary = []
@@ -54,16 +54,16 @@ def write_feedback(feedback: Path, games: list[tuple[GameResult, Path | None, Pa
             "model_calls": result.model_calls,
             "invalid_submissions": result.invalid_submissions,
             "moves": result.moves,
-            "diagnostics": diagnose_game([(m["before"], m["action"]) for m in result.moves]),
+            "diagnostics": spec.diagnose([(m["before"], m["action"]) for m in result.moves]),
         }
         if transcript and transcript.exists():
             record["transcript"] = json.loads(transcript.read_text())["messages"]
         (games_dir / f"{result.game_id}.json").write_text(json.dumps(record, indent=1))
         if session and session.exists():
             shutil.copytree(session, games_dir / f"{result.game_id}_session", dirs_exist_ok=True)
-        blunders = sum(d["severity"] == "blunder" for d in record["diagnostics"])
+        flagged = sum(d["severity"] != "ok" for d in record["diagnostics"])  # Hex: blunders
         summary.append({"game_id": result.game_id, "score": result.score, "end_reason": result.end_reason,
-                        "blunders": blunders})
+                        "blunders" if spec is HEX else "flagged_moves": flagged})
     mean = 100 * sum(s["score"] for s in summary) / max(1, len(summary))
     (feedback / "summary.json").write_text(json.dumps({"mean_score": mean, "games": summary}, indent=1))
 

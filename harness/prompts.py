@@ -41,7 +41,34 @@ most {tool_timeout:.0f} seconds. Submit legal actions to maximise your score.
 
 Your persistent failure-mode and artifact indexes are under {inventory}/tracking."""
 
-ACTOR_BUDGET = "Game model-call budget: {used}/{maximum} calls used; {remaining} remain."
+ACTOR_GO = """\
+A new Go game has started. You play {actor_role}. Your persistent \
+infrastructure is under {inventory} and is read-only. {session} is writable and \
+exists only for this game. Use Bash, Python, your existing infrastructure, \
+temporary tools you write now, or direct reasoning, as you see fit. You have at \
+most {max_calls} model calls for this game.
+
+The board is 5x5. Black is X and White is O; Black moved first. Actions are \
+coordinates such as C4 (column letter, row number, row 1 at the bottom) or pass. \
+Rules: stones without liberties are captured; suicide is illegal; positional \
+superko forbids recreating any earlier board position; two consecutive passes \
+end the game. The game also ends after {max_actions} actions in total (passes \
+count), and the position is then scored as it stands. Scoring is Chinese area \
+scoring with komi {komi:g} for White: stones plus surrounded empty points, with \
+dead stones removed by the authoritative scorer. The board shown by get_state \
+counts every stone as alive.
+
+In Python, game_api is a dictionary with get_state(), get_legal_actions(), \
+apply_action(action), undo_action(), current_player() and submit_action(action). \
+apply_action and undo_action work on a separate analysis board. \
+game_api["submit_action"](action) commits one legal action on the real board, \
+lets the opponent reply if the game continues, and returns the new state. The \
+native submit_action tool does the same. Each Bash or Python call may run for at \
+most {tool_timeout:.0f} seconds. Submit legal actions to maximise your score.
+
+Your persistent failure-mode and artifact indexes are under {inventory}/tracking."""
+
+ACTOR_BUDGET ="Game model-call budget: {used}/{maximum} calls used; {remaining} remain."
 
 ACTOR_TIMEOUT_RECOVERY = """\
 Your Bash or Python call timed out. This is your one recovery model call. You \

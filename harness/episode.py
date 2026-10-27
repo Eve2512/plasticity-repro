@@ -14,18 +14,14 @@ import json
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
 
-from envs.hex_match import Player
-from envs.hex_openings import Opening
+from envs.games import HEX, Game
 from harness import prompts
-from harness.game_api import HexGameSession
+from harness.game_api import GameSession
 from harness.ledger import Ledger
 from harness.model import (
     BASH, GET_LEGAL_ACTIONS, GET_STATE, PYTHON, SUBMIT_ACTION, Model, ToolCall, serialise_messages,
 )
 from harness.sandbox import PythonSession, PythonTimeout, run_bash
-
-ROLE = {"X": "red (X)", "O": "blue (O)"}
-
 
 @dataclass
 class EpisodeConfig:
@@ -38,7 +34,7 @@ class GameResult:
     game_id: str
     actor: str
     winner: str | None
-    score: float  # 1 for a win, 0 otherwise (Hex has no draws)
+    score: float  # 1 for a win, 0 otherwise (Hex and Go with komi 9.5 have no draws)
     end_reason: str  # finished | budget | no_action | timeout
     model_calls: int
     moves: list = field(default_factory=list)  # [{"before": [...], "action", "opponent_action"}]
@@ -46,7 +42,7 @@ class GameResult:
 
 
 class _Actor:
-    def __init__(self, game: HexGameSession, inventory: Path, session_dir: Path, hidden, cfg: EpisodeConfig):
+    def __init__(self, game: GameSession, inventory: Path, session_dir: Path, hidden, cfg: EpisodeConfig):
         self.game, self.inventory, self.session_dir, self.hidden, self.cfg = game, inventory, session_dir, hidden, cfg
         self.python: PythonSession | None = None
 
@@ -97,8 +93,8 @@ class _Actor:
 def play_game(
     model: Model,
     game_id: str,
-    opening: Opening,
-    opponent: Player,
+    opening,
+    opponent,
     inventory: Path,
     session_dir: Path,
     hidden,
@@ -107,12 +103,15 @@ def play_game(
     phase: str,
     cfg: EpisodeConfig = EpisodeConfig(),
     transcript_path: Path | None = None,
+    spec: Game = HEX,
 ) -> GameResult:
     session_dir.mkdir(parents=True, exist_ok=True)
-    game = HexGameSession(opening, opponent)
+    game = GameSession(opening, opponent)
     actor = _Actor(game, inventory, session_dir, hidden, cfg)
-    intro = prompts.ACTOR_HEX.format(
-        actor_role=ROLE[opening.actor],
+    intro = spec.prompt.format(
+        actor_role=spec.roles[opening.actor],
+        max_actions=getattr(game.real, "max_actions", None),
+        komi=getattr(game.real, "komi", 0),
         inventory=inventory.resolve(),
         session=session_dir.resolve(),
         max_calls=cfg.max_calls,

@@ -10,7 +10,7 @@ _ids = itertools.count()
 
 def first_legal(system, messages, tools):
     """Plays the first legal action in one Python call; reflects by doing nothing."""
-    if messages[0]["content"].startswith("A new hex game"):
+    if messages[0]["content"].startswith("A new ") and " game has started." in messages[0]["content"]:
         if any(m["role"] == "assistant" for m in messages):
             return ModelTurn("done")
         code = ("s = game_api['get_state']()\nwhile not s['winner']:\n"

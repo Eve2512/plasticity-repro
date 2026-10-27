@@ -1,9 +1,10 @@
-"""Run one Hex lineage with a Claude model and write a report.
+"""Run one Hex or Go lineage with a Claude model and write a report.
 
     uv run python scripts/run_hex.py --model anthropic/claude-sonnet-5.5 --rounds 7 \
         --train 8 --id 12 --ood 4 --cap 17 --name lineage_a          # plan only
     ... --yes                                                          # paid run
     ... --dry                                                          # scripted model, no API calls
+    ... --game go                                                      # 5x5 Go (scripts/run_go.py)
 
 Spending stops before any call once the billed amount reaches --cap (never
 above $45); completed checkpoints are kept. Keys come from the environment or
@@ -16,6 +17,7 @@ import json
 import sys
 from pathlib import Path
 
+from envs.games import GAMES
 from harness.anthropic_model import BILLING, ModelSpec
 from harness.episode import EpisodeConfig
 from harness.keys import load_key
@@ -55,7 +57,7 @@ def artifact_use(run_dir: Path, t: int) -> tuple[int, int, int, int]:
 def report(results: dict, run_dir: Path, path: Path) -> None:
     cfg = results["config"]
     lines = [
-        f"# 10 Lineage `{run_dir.name}`: {results['model']} on 6x6 Hex",
+        f"# 10 Lineage `{run_dir.name}`: {results['model']} on {GAMES[cfg.get('game', 'hex')].title}",
         "",
         f"Checkpoints 0–{cfg['rounds']}; games per checkpoint {cfg['games']}; openings: {cfg['openings']}.",
         f"Billed ${results['billed']:.2f} (cap ${cfg['cap']:.2f}); learning cost priced the paper's way "
@@ -98,6 +100,7 @@ def report(results: dict, run_dir: Path, path: Path) -> None:
 
 def main(argv):
     parser = argparse.ArgumentParser()
+    parser.add_argument("--game", default="hex", choices=sorted(GAMES))
     parser.add_argument("--provider", default="openrouter", choices=sorted(PROVIDERS))
     parser.add_argument("--model", default="anthropic/claude-sonnet-5.5", choices=sorted(BILLING))
     parser.add_argument("--effort", default="medium", choices=["low", "medium", "high", "xhigh", "max"])
@@ -107,7 +110,8 @@ def main(argv):
     parser.add_argument("--train", type=int, default=8)
     parser.add_argument("--id", type=int, default=12)
     parser.add_argument("--ood", type=int, default=4)
-    parser.add_argument("--openings", default="pooled", choices=["pooled", "contested", "legacy"])
+    parser.add_argument("--openings", default="pooled", choices=["pooled", "contested", "legacy"],
+                        help="Go has only pooled openings")
     parser.add_argument("--cap", type=float, default=17.00)
     parser.add_argument("--name", default="lineage_a")
     parser.add_argument("--workers", type=int, default=1, help="games played at once")
@@ -121,12 +125,14 @@ def main(argv):
     key_name, model_matches = PROVIDERS[args.provider]
     if not model_matches(args.model):
         parser.error(f"{args.model} is not a {args.provider} model id")
+    if args.openings not in GAMES[args.game].openings:
+        parser.error(f"{args.game} openings: {', '.join(GAMES[args.game].openings)}")
     if args.rounds < 1 or min(args.train, args.id, args.ood) < 1:
         parser.error("need at least one round and one game per split")
 
     games = {"train": args.train, "id": args.id, "ood": args.ood}
     total = sum(games.values()) * (args.rounds + 1)
-    print(f"{args.model} via {args.provider}, effort {args.effort} (reflection {args.reflect_effort or args.effort}), "
+    print(f"{GAMES[args.game].title}: {args.model} via {args.provider}, effort {args.effort} (reflection {args.reflect_effort or args.effort}), "
           f"openings {args.openings}")
     print(f"checkpoints 0-{args.rounds}, games per checkpoint {games}: {total} games + {args.rounds} reflections")
     print(f"stops before any call once ${args.cap:.2f} is billed; {args.workers} game(s) at once")
@@ -155,6 +161,7 @@ def main(argv):
     if not args.resume:
         reset(run_dir)
     cfg = RunConfig(
+        game=args.game,
         rounds=args.rounds,
         games=games,
         openings=args.openings,
