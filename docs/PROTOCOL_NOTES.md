@@ -49,11 +49,15 @@ the harness in phase 2.
 | Prompts in Appendix I | Paraphrased in `harness/prompts.py` (same rules, budgets, schemas) | The wording is the paper's; only the substance is reused |
 | Restricted Python (imports unavailable) | Safe-builtins whitelist; `import` raises; `load_python` reads only the inventory and session | The paper's exact whitelist is not given |
 | After a tool timeout: one recovery call | Same; play then continues with a fresh interpreter, and a second timeout forfeits | The paper does not say what follows the recovery call |
+| Go: "training seeds change per checkpoint, held-out seeds fixed" (no openings described) | 2-ply (Black) / 3-ply (White) random openings, kept if the first-legal player loses and GNU Go 10 wins vs level 5; difficulty = GNU Go 10's mean final margin vs levels 5/7/9; one pool dealt by quantile to ID (10/colour), OOD (6/colour) and a 40/colour training reservoir (`data/go_openings_pooled.json`). Each checkpoint draws its training games from the reservoir, one per difficulty stratum, with seeds that depend on the checkpoint; GNU Go gets a fixed seed per game | From the empty board GNU Go as Black wins every game by 15.5, so White could never win (report 13) |
+| Go "authoritative scorer" with dead-stone adjudication | GNU Go 3.8 `final_score` (Chinese rules, level 10) on the real board; the actor's analysis board counts every stone as alive | The scorer is not named |
+| GNU Go levels 5–9 / 10 | Same levels, GNU Go 3.8 (`brew install gnu-go`), positional superko, never resigns | On 5×5 the levels play almost alike (report 13) |
 | 10-ply (red) / 11-ply (blue) openings from fixed banks | 4-ply (red) / 5-ply (blue) openings from one shared pool (`data/hex_openings_pooled.json`): kept only if always playing the first legal action loses and a 30k-node engine wins against the weakest train opponent, scored for difficulty by engines only, and dealt to train / ID / OOD by colour and difficulty | With 10/11 plies the smoke run's games lasted 2–7 actor moves and blue was much harder (reports 07–09). Per-split seeds then made the ID bank harder than train (lineage A: Sonnet 8/8 train, 2/12 ID; report 10). Banks are not published |
 
 ## Not specified in the paper
 
 - Exact Hex opening banks and the alpha–beta evaluation function.
-- Go and Hex seeds.
+- Go and Hex seeds, and what a Go seed sets (openings, opponent randomness or both).
+- Which program adjudicates dead stones in Go.
 - Price tables used for cost ("fixed undiscounted input/output prices").
 - The structural validator beyond "persistent tool load" smoke checks.
