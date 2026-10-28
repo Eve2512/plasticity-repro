@@ -3,6 +3,11 @@
 Earlier assistant turns are sent back exactly as the API returned them
 (thinking blocks included): current models reject or ignore edited history.
 Automatic prompt caching keeps the growing, append-only history cheap.
+
+Current models always think (adaptive thinking) and are billed for it, but by
+default the API returns the thinking blocks empty. `thinking_display="summarized"`
+asks for a readable summary of that reasoning at no extra cost; it is kept on
+the turn as `ModelTurn.thinking`. The raw chain of thought is never returned.
 """
 
 import time
@@ -44,11 +49,13 @@ class ModelSpec:
     key: str = field(repr=False)
     effort: str = "medium"
     provider: str = "openrouter"  # or "anthropic"
+    thinking_display: str | None = None  # "summarized" to record thinking summaries
 
     def __call__(self) -> "AnthropicModel":
         if self.provider == "openrouter":
-            return AnthropicModel(self.model, effort=self.effort, base_url=OPENROUTER_BASE_URL, auth_token=self.key)
-        return AnthropicModel(self.model, effort=self.effort,
+            return AnthropicModel(self.model, effort=self.effort, base_url=OPENROUTER_BASE_URL, auth_token=self.key,
+                                  thinking_display=self.thinking_display)
+        return AnthropicModel(self.model, effort=self.effort, thinking_display=self.thinking_display,
                               client=anthropic.Anthropic(api_key=self.key, max_retries=4))
 
 
@@ -95,6 +102,7 @@ class AnthropicModel:
         client=None,
         base_url: str | None = None,
         auth_token: str | None = None,
+        thinking_display: str | None = None,
     ):
         """`base_url` + `auth_token` (sent as a Bearer token) point the SDK at another
         Messages-API endpoint such as OpenRouter's."""
@@ -103,6 +111,7 @@ class AnthropicModel:
         self.name = model
         self.effort = effort
         self.max_tokens = max_tokens
+        self.thinking_display = thinking_display
         if client is None and base_url:
             # api_key="" keeps any ANTHROPIC_API_KEY in the environment from being sent to a third party.
             client = anthropic.Anthropic(base_url=base_url, auth_token=auth_token, api_key="", max_retries=4)
@@ -116,6 +125,8 @@ class AnthropicModel:
     def step(self, system: str, messages: list[dict], tools: list[ToolSpec]) -> ModelTurn:
         # The SDK already retries a few times within about a minute; these longer waits
         # ride out a lost connection (a train tunnel, a sleeping laptop) of up to ~30 minutes.
+        # Without a display setting no `thinking` field is sent, as in the runs before 2026-10-28.
+        extra = {"thinking": {"type": "adaptive", "display": self.thinking_display}} if self.thinking_display else {}
         for wait in (*OUTAGE_WAITS, None):
             try:
                 response = self.client.messages.create(
@@ -126,6 +137,7 @@ class AnthropicModel:
                     tools=to_api_tools(tools),
                     output_config={"effort": self.effort},
                     cache_control={"type": "ephemeral"},
+                    **extra,
                 )
                 break
             except anthropic.APIConnectionError as exc:  # includes timeouts
@@ -150,11 +162,12 @@ class AnthropicModel:
             reported_cost=float(cost) if isinstance(cost, (int, float)) else None,
         )
 
+        thinking = "\n\n".join(b.thinking for b in response.content if b.type == "thinking" and b.thinking)
         if response.stop_reason == "refusal":
             # No tool calls: the episode ends as "no_action" and counts as a loss.
-            return ModelTurn("[refusal]", (), usage, raw=response.content, stop_reason="refusal")
+            return ModelTurn("[refusal]", (), usage, raw=response.content, stop_reason="refusal", thinking=thinking)
         text = "".join(b.text for b in response.content if b.type == "text")
         calls = tuple(
             ToolCall(b.id, b.name, dict(b.input)) for b in response.content if b.type == "tool_use"
         )
-        return ModelTurn(text, calls, usage, raw=response.content, stop_reason=response.stop_reason)
+        return ModelTurn(text, calls, usage, raw=response.content, stop_reason=response.stop_reason, thinking=thinking)

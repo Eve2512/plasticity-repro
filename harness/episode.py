@@ -19,7 +19,7 @@ from harness import prompts
 from harness.game_api import GameSession
 from harness.ledger import Ledger
 from harness.model import (
-    BASH, GET_LEGAL_ACTIONS, GET_STATE, PYTHON, SUBMIT_ACTION, Model, ToolCall, serialise_messages,
+    BASH, GET_LEGAL_ACTIONS, GET_STATE, PYTHON, SUBMIT_ACTION, Model, ToolCall, assistant_message, serialise_messages,
 )
 from harness.sandbox import PythonExited, PythonSession, PythonTimeout, run_bash
 
@@ -130,7 +130,7 @@ def play_game(
             turn = model.step(prompts.SYSTEM, messages, tools)
             calls += 1
             ledger.add(checkpoint, phase, game_id, turn.usage)
-            messages.append({"role": "assistant", "content": turn.text, "tool_calls": list(turn.tool_calls), "raw": turn.raw})
+            messages.append(assistant_message(turn))
             if not turn.tool_calls:
                 end_reason = "no_action"
                 break
@@ -151,7 +151,7 @@ def play_game(
                 turn = model.step(prompts.SYSTEM, messages, [GET_STATE, GET_LEGAL_ACTIONS, SUBMIT_ACTION])
                 calls += 1
                 ledger.add(checkpoint, phase, game_id, turn.usage)
-                messages.append({"role": "assistant", "content": turn.text, "tool_calls": list(turn.tool_calls), "raw": turn.raw})
+                messages.append(assistant_message(turn))
                 for call in turn.tool_calls:
                     out, _ = actor.run(call) if call.name != "bash" and call.name != "python" else ("not available", False)
                     messages.append({"role": "tool", "tool_call_id": call.id, "content": out})
