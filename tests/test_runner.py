@@ -58,3 +58,22 @@ def test_lineage_layout_and_results(tmp_path):
     # learning cost excludes held-out evaluation
     assert results["learning_cost"] < results["total_cost"]
     assert json.loads((run / "results.json").read_text())["plasticity"]["split"] == "id"
+
+
+def test_no_feedback_reflection_sees_no_game_records(tmp_path):
+    cfg = RunConfig(
+        rounds=1,
+        games={"train": 2, "id": 2, "ood": 2},
+        train_id_levels=(200,),
+        ood_levels=(400,),
+        episode=EpisodeConfig(max_calls=4, tool_timeout=30),
+        reflection=ReflectionConfig(max_calls=3, max_attempts=1),
+        reflection_feedback="none",
+    )
+    results = run_lineage(ScriptedModel(naive), tmp_path / "run", cfg)
+    feedback = tmp_path / "run" / "feedback" / "checkpoint_000"
+    assert [p.name for p in feedback.iterdir()] == ["README.md"]
+    assert results["checkpoints"][0]["train"]["games"] == 2  # training games are still played and paid for
+    assert results["checkpoints"][1]["cost_cumulative"] > 0
+    workspace = tmp_path / "run" / "reflect" / "checkpoint_000" / "attempt_1" / "workspace" / "feedback"
+    assert not (workspace / "games").exists() and (workspace / "protocol" / "SCHEMA.md").exists()
