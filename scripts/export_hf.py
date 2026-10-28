@@ -3,6 +3,7 @@
     uv run python scripts/export_hf.py
 
 Writes export/agent-plasticity-hex/ (git-ignored): data/*.jsonl and README.md.
+Covers both games (6x6 Hex and 5x5 Go); every table has a `game` column.
 Every string is scrubbed of local paths and the user name, and the export stops
 if anything that looks like a key, token or email address is left.
 """
@@ -13,8 +14,9 @@ import shutil
 import sys
 from pathlib import Path
 
-from envs.hex_feedback import diagnose_game
-from envs.hex_openings import BANK_FILE, OOD_LEVELS, POOLED_FILE, TRAIN_ID_LEVELS, split_banks
+from envs import go_openings
+from envs.games import GAMES
+from envs.hex_openings import BANK_FILE, POOLED_FILE, split_banks
 
 ROOT = Path(__file__).resolve().parent.parent
 OUT = ROOT / "export" / "agent-plasticity-hex"
@@ -40,6 +42,17 @@ RUNS = [
      "note": "Replicate of lineage_a2 (reflection at medium effort), played with 3 workers."},
     {"run_id": "haiku_r20", "dir": "haiku_r20", "openings": "pooled", "report": "reports/12_comparison.md",
      "note": "Claude Haiku 5.5, 20 rounds (the paper's checkpoint count), 20/24/8 games per checkpoint."},
+    # plan A (reports/14_run_plan.md, 15_model_game_comparison.md): reflection effort high throughout
+    *({"run_id": name, "dir": name, "openings": "pooled", "report": f"reports/10_{name}.md", "reflect_effort": "high",
+       "game": "go" if name.startswith("go_") else "hex", "note": note} for name, note in (
+        ("hex_haiku_reflect_high", "Haiku 5.5 on Hex, reflection at effort high, 8/12/4 games per checkpoint."),
+        ("hex_haiku_reflect_high_rep2", "Replicate of hex_haiku_reflect_high."),
+        ("go_sonnet_reflect_high", "Sonnet 5.5 on 5x5 Go, 8/20/4 games per checkpoint. Stopped by its $13 cap: "
+                                   "checkpoint 6 was played in full but is not complete (no results row)."),
+        ("go_sonnet_reflect_high_rep2", "Replicate of go_sonnet_reflect_high; all 8 checkpoints."),
+        ("go_haiku_reflect_high", "Haiku 5.5 on 5x5 Go, 8/20/4 games per checkpoint."),
+        ("go_haiku_reflect_high_rep2", "Replicate of go_haiku_reflect_high."),
+    )),
 ]
 EFFORT = "medium"  # actor effort in every run
 PROVIDER = "openrouter"
@@ -97,7 +110,7 @@ def calls_rows(run):
     run_dir = ROOT / "runs" / run["dir"]
     for line in (run_dir / "ledger.jsonl").read_text().splitlines():
         e = json.loads(line)
-        yield {"run_id": run["run_id"], **{k: e.get(k) for k in (
+        yield {"run_id": run["run_id"], "game": run.get("game", "hex"), **{k: e.get(k) for k in (
             "checkpoint", "phase", "episode", "input_tokens", "cached_input_tokens",
             "cache_write_tokens", "output_tokens")}, "cost_usd": e.get("reported_cost")}
 
@@ -105,7 +118,8 @@ def calls_rows(run):
 def run_row(run, results):
     cfg = results["config"]
     return {
-        "run_id": run["run_id"], "model": results["model"], "provider": PROVIDER, "effort": EFFORT,
+        "run_id": run["run_id"], "game": run.get("game", "hex"), "model": results["model"], "provider": PROVIDER,
+        "effort": EFFORT,
         "reflect_effort": run.get("reflect_effort", EFFORT),
         "openings": run["openings"], "rounds": cfg["rounds"], "games_per_checkpoint": cfg["games"],
         "train_id_levels": cfg["train_id_levels"], "ood_levels": cfg["ood_levels"],
@@ -121,7 +135,7 @@ def checkpoint_rows(run, results):
     for c in results["checkpoints"]:
         refl = c.get("reflection")
         yield {
-            "run_id": run["run_id"], "checkpoint": c["t"], "learning_cost_usd": round(c["cost_cumulative"], 4),
+            "run_id": run["run_id"], "game": run.get("game", "hex"), "checkpoint": c["t"], "learning_cost_usd": round(c["cost_cumulative"], 4),
             **{f"{s}_wins": c[s]["points"] for s in ("train", "id", "ood")},
             **{f"{s}_games": c[s]["games"] for s in ("train", "id", "ood")},
             "unfinished_games": sum(c[s]["unfinished"] for s in ("train", "id", "ood")),
@@ -132,6 +146,7 @@ def checkpoint_rows(run, results):
 
 def game_rows(run, results, usage):
     run_dir = ROOT / "runs" / run["dir"]
+    spec = GAMES[run.get("game", "hex")]
     complete = {c["t"] for c in results["checkpoints"]}
     for f in sorted(run_dir.glob("games/checkpoint_*/*/*.json")):
         g = json.loads(f.read_text())
@@ -139,14 +154,14 @@ def game_rows(run, results, usage):
         t = int(r["game_id"].split("_")[1])
         split = r["game_id"].split("_")[2]
         index = int(r["game_id"].split("_g")[1][:2]) - 1
-        levels = OOD_LEVELS if split == "ood" else TRAIN_ID_LEVELS
+        levels = spec.ood_levels if split == "ood" else spec.train_id_levels
         yield {
-            "run_id": run["run_id"], "checkpoint": t, "checkpoint_complete": t in complete, "split": split,
-            "game_id": r["game_id"], "actor": "red" if r["actor"] == "X" else "blue",
-            "opponent_nodes_per_move": levels[index % len(levels)], "opening": g["opening"],
+            "run_id": run["run_id"], "game": spec.name, "checkpoint": t, "checkpoint_complete": t in complete,
+            "split": split, "game_id": r["game_id"], "actor": spec.colours[r["actor"]],
+            "opponent_level": levels[index % len(levels)], "opening": g["opening"],
             "moves": r["moves"], "winner": r["winner"], "score": r["score"], "end_reason": r["end_reason"],
             "model_calls": r["model_calls"], "invalid_submissions": r["invalid_submissions"],
-            "diagnostics": diagnose_game([(m["before"], m["action"]) for m in r["moves"]]),
+            "diagnostics": spec.diagnose([(m["before"], m["action"]) for m in r["moves"]]),
             "usage": usage.get(r["game_id"]), "messages": g["messages"],
         }
 
@@ -157,7 +172,7 @@ def reflection_rows(run, usage):
         d = json.loads(f.read_text())
         t = int(f.parts[-3].split("_")[1])
         episode = f"checkpoint_{t:03d}_attempt_{d['attempt']}"
-        yield {"run_id": run["run_id"], "checkpoint": t, "attempt": d["attempt"], "calls": d["calls"],
+        yield {"run_id": run["run_id"], "game": run.get("game", "hex"), "checkpoint": t, "attempt": d["attempt"], "calls": d["calls"],
                "accepted": d["accepted"], "errors": d["errors"], "usage": usage.get(episode),
                "messages": d["messages"]}
 
@@ -168,21 +183,23 @@ def inventory_rows(run):
         t = int(inv.name.split("_")[1])
         for p in sorted(inv.rglob("*")):
             if p.is_file() and "__pycache__" not in p.parts:
-                yield {"run_id": run["run_id"], "checkpoint": t, "path": p.relative_to(inv).as_posix(),
+                yield {"run_id": run["run_id"], "game": run.get("game", "hex"), "checkpoint": t, "path": p.relative_to(inv).as_posix(),
                        "content": p.read_text(errors="replace")}
 
 
 def opening_rows():
-    for bank, path in (("contested", BANK_FILE), ("pooled", POOLED_FILE)):
+    for game, bank, path in (("hex", "contested", BANK_FILE), ("hex", "pooled", POOLED_FILE),
+                             ("go", "pooled", go_openings.POOLED_FILE)):
         for split, by in json.loads(path.read_text())["banks"].items():
             for actor, entries in by.items():
                 for i, e in enumerate(entries):
                     moves = e["moves"] if isinstance(e, dict) else e
-                    yield {"bank": bank, "split": split, "actor": "red" if actor == "X" else "blue", "index": i,
-                           "moves": moves, "difficulty": e.get("difficulty") if isinstance(e, dict) else None}
+                    yield {"game": game, "bank": bank, "split": split, "actor": GAMES[game].colours[actor],
+                           "index": i, "moves": moves,
+                           "difficulty": e.get("difficulty") if isinstance(e, dict) else None}
     for split, bank in split_banks({"train": 4, "id": 4, "ood": 2}, source="legacy").items():  # the smoke run's
         for i, o in enumerate(bank):
-            yield {"bank": "legacy", "split": split, "actor": "red" if o.actor == "X" else "blue", "index": i,
+            yield {"game": "hex", "bank": "legacy", "split": split, "actor": GAMES["hex"].colours[o.actor], "index": i,
                    "moves": list(o.moves), "difficulty": None}
 
 
