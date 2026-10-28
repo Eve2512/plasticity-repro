@@ -21,7 +21,7 @@ from harness.ledger import Ledger
 from harness.model import (
     BASH, GET_LEGAL_ACTIONS, GET_STATE, PYTHON, SUBMIT_ACTION, Model, ToolCall, serialise_messages,
 )
-from harness.sandbox import PythonSession, PythonTimeout, run_bash
+from harness.sandbox import PythonExited, PythonSession, PythonTimeout, run_bash
 
 @dataclass
 class EpisodeConfig:
@@ -77,6 +77,8 @@ class _Actor:
                 return self._python().run(str(args.get("code", "")), self.cfg.tool_timeout).output, False
             except PythonTimeout as exc:
                 return str(exc), True
+            except PythonExited:  # a failed call, not a crash; the next call starts a fresh interpreter
+                return "python sandbox exited during this call; the next python call starts a fresh interpreter", False
         if name == "submit_action":
             return json.dumps(self.game.submit_action(str(args.get("action", "")))), False
         if name == "get_state":
