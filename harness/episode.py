@@ -27,6 +27,7 @@ from harness.sandbox import PythonExited, PythonSession, PythonTimeout, run_bash
 class EpisodeConfig:
     max_calls: int = 32  # Go and Hex in the paper
     tool_timeout: float = 240.0
+    extra_instruction: str = ""  # appended to the actor's first message (artifact ablation, test 6)
 
 
 @dataclass
@@ -119,6 +120,8 @@ def play_game(
         max_calls=cfg.max_calls,
         tool_timeout=cfg.tool_timeout,
     )
+    if cfg.extra_instruction:
+        intro += "\n\n" + cfg.extra_instruction
     messages: list[dict] = [{"role": "user", "content": intro}]
     calls, end_reason, recovered = 0, "budget", False
     tools = [BASH, PYTHON, SUBMIT_ACTION]
