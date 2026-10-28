@@ -92,6 +92,10 @@ class PythonTimeout(Exception):
     pass
 
 
+class PythonExited(RuntimeError):
+    """The sandboxed interpreter died during a call (not by our timeout)."""
+
+
 class PythonSession:
     """A persistent sandboxed interpreter whose game_api calls reach `api`.
 
@@ -116,13 +120,16 @@ class PythonSession:
         self._read()
 
     def _send(self, message):
-        self.proc.stdin.write(json.dumps(message) + "\n")
-        self.proc.stdin.flush()
+        try:
+            self.proc.stdin.write(json.dumps(message) + "\n")
+            self.proc.stdin.flush()
+        except OSError:  # BrokenPipeError: the child is gone
+            raise PythonExited("python sandbox exited") from None
 
     def _read(self):
         line = self.proc.stdout.readline()
         if not line:
-            raise RuntimeError("python sandbox exited")
+            raise PythonExited("python sandbox exited")
         return json.loads(line)
 
     def run(self, code: str, timeout: float) -> ToolResult:
@@ -140,20 +147,19 @@ class PythonSession:
         try:
             self._send({"op": "exec", "code": code})
             while True:
-                try:
-                    msg = self._read()
-                except (RuntimeError, ValueError):
-                    if expired.is_set():
-                        raise PythonTimeout(f"python call exceeded {timeout:g} s") from None
-                    raise
+                msg = self._read()
                 if msg["op"] == "api":
                     try:
                         reply = {"ok": True, "value": self.api(msg["method"], msg["args"])}
                     except Exception as exc:  # reported to the agent, not raised here
                         reply = {"ok": False, "error": f"{type(exc).__name__}: {exc}"}
-                    self._send(reply)
+                    self._send(reply)  # the timer may have killed the child during a slow api call
                 elif msg["op"] == "done":
                     return ToolResult(_clip(msg["output"]), 0 if msg["ok"] else 1)
+        except (PythonExited, ValueError):
+            if expired.is_set():
+                raise PythonTimeout(f"python call exceeded {timeout:g} s") from None
+            raise
         finally:
             timer.cancel()
 

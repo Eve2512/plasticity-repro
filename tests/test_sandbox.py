@@ -2,7 +2,7 @@ import os
 
 import pytest
 
-from harness.sandbox import PythonSession, PythonTimeout, run_bash
+from harness.sandbox import PythonExited, PythonSession, PythonTimeout, run_bash
 
 
 @pytest.fixture
@@ -124,3 +124,32 @@ def test_python_timeout_kills_session(dirs):
     with pytest.raises(PythonTimeout):
         py.run("while True:\n    pass", 0.5)
     assert not py.alive
+
+
+def test_python_timeout_during_slow_api_call(dirs):
+    """The timer kills the child while the parent serves a slow api call (a GNU Go move):
+    sending the reply must count as a timeout, not crash the run (BrokenPipeError)."""
+    import time
+
+    def api(method, args):
+        time.sleep(1.0)
+        return None
+
+    py = make_python(dirs, api)
+    with pytest.raises(PythonTimeout):
+        py.run("game_api['get_state']()", 0.3)
+    assert not py.alive
+
+
+def test_python_child_dying_is_a_failed_call(dirs):
+    py = make_python(dirs)
+
+    def api(method, args):
+        py._kill()  # the child dies for another reason mid-call
+        py.proc.wait()
+        return None
+
+    py.api = api
+    with pytest.raises(PythonExited):
+        py.run("game_api['get_state']()", 10)
+
