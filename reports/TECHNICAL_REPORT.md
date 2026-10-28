@@ -224,8 +224,14 @@ tool with a far larger search budget (`budget=2500000`); the calls ran past 240 
   motivated by the medium-effort failure; the replicates were run afterwards, but a
   pre-registered study would be stronger.
 - **Fewer checkpoints than the paper** for Sonnet (8 vs 20) and scaled-down opponents.
-- **No hidden reasoning.** Thinking blocks are returned empty; diagnoses of reflection
-  depth rest on visible actions and the model's own summaries.
+- **No thinking in the saved transcripts.** The models think on every call and are billed
+  for it. A probe on 2026-10-28 (`scripts/probe_thinking.py`) found that Sonnet 5.5 through
+  OpenRouter returns a short thinking summary even without asking, and Haiku 5.5 returns one
+  only when `display: "summarized"` is requested. The harness sent those blocks back to the
+  model but dropped them when saving transcripts, so no run up to plan A kept any thinking,
+  and it cannot be recovered. Diagnoses of reflection depth rest on visible actions and the
+  model's own written summaries. New runs record thinking summaries (`--thinking-display`,
+  default `summarized`), never the raw chain of thought, which the API does not return.
 - **Artifact-use counts are textual**: a game counts as calling a tool if its Python code
   calls an entrypoint; the paper's semantic judge was not reproduced.
 - **Cost-based P_sat is unstable here.** Learning costs are a few dollars, so P_sat values

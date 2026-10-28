@@ -126,8 +126,9 @@ timeouts after calling its own tool with a much larger search budget.
 
 ## Limits
 
-- **No hidden reasoning.** The API returns thinking blocks empty by default, so transcripts
-  contain actions and visible text only.
+- **No thinking.** The models thought on every call, but the harness did not save the
+  thinking blocks (Sonnet 5.5 through OpenRouter returned short summaries; Haiku 5.5 returned
+  them empty), so transcripts contain actions and visible text only.
 - **Small samples.** 12 (Hex) or 20 (Go) held-out ID games per checkpoint; differences under about 20 points
   between halves of the run are not detectable.
 - **Two lineages** per condition, except `haiku_r20` (one).

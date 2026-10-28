@@ -55,6 +55,17 @@ the harness in phase 2.
 | Go: 20 train, 20 ID, 12 OOD games per checkpoint, 20 checkpoints | 8 train, 20 ID, 4 OOD, 8 checkpoints; actor effort `medium`, reflection effort `high`; runs stop at a per-lineage cost cap, and a checkpoint cut off by the cap is not counted | Cost: Sonnet 5.5 Go games cost $0.04–0.06 each (report 14); ID kept at 20 so held-out changes are measurable |
 | 10-ply (red) / 11-ply (blue) openings from fixed banks | 4-ply (red) / 5-ply (blue) openings from one shared pool (`data/hex_openings_pooled.json`): kept only if always playing the first legal action loses and a 30k-node engine wins against the weakest train opponent, scored for difficulty by engines only, and dealt to train / ID / OOD by colour and difficulty | With 10/11 plies the smoke run's games lasted 2–7 actor moves and blue was much harder (reports 07–09). Per-split seeds then made the ID bank harder than train (lineage A: Sonnet 8/8 train, 2/12 ID; report 10). Banks are not published |
 
+## Thinking
+
+The models use adaptive thinking on every call; the paper does not say whether its
+transcripts include reasoning. Runs up to plan A (2026-10-27) sent no `thinking` field:
+Sonnet 5.5 through OpenRouter then returns short thinking summaries and Haiku 5.5 returns
+empty thinking blocks (probe, 2026-10-28). The blocks went back to the model unchanged but
+were not saved. From 2026-10-28 `--thinking-display summarized` (the default) asks for
+summaries and saves them in each assistant turn of the transcript as `thinking`. The copy
+of the actor's transcript that reflection reads has them removed, so recording them does
+not change what reflection learns from.
+
 ## Not specified in the paper
 
 - Exact Hex opening banks and the alpha–beta evaluation function.
