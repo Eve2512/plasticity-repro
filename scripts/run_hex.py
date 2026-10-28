@@ -56,10 +56,12 @@ def artifact_use(run_dir: Path, t: int) -> tuple[int, int, int, int]:
 
 def report(results: dict, run_dir: Path, path: Path) -> None:
     cfg = results["config"]
+    done = len(results["checkpoints"]) - 1
+    span = f"0–{done}" if done == cfg["rounds"] else f"0–{done} completed of 0–{cfg['rounds']} planned"
     lines = [
         f"# 10 Lineage `{run_dir.name}`: {results['model']} on {GAMES[cfg.get('game', 'hex')].title}",
         "",
-        f"Checkpoints 0–{cfg['rounds']}; games per checkpoint {cfg['games']}; openings: {cfg['openings']}.",
+        f"Checkpoints {span}; games per checkpoint {cfg['games']}; openings: {cfg['openings']}.",
         f"Billed ${results['billed']:.2f} (cap ${cfg['cap']:.2f}); learning cost priced the paper's way "
         f"${results['learning_cost']:.2f}.",
         "",
