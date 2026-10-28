@@ -24,9 +24,9 @@ paper's equations (Section 2) and appendix (Appendix B settings, Appendix I prom
 | Part | Paper | This repo |
 |---|---|---|
 | Metrics (Eq. 2–5, bootstrap) | yes | **phase 1 done**, no API cost |
-| Harness (sandbox, reflection, validator, ledger) | not released | **phase 2: built and dry-run tested for Hex**, no API cost |
-| Games | Chess, 5×5 Go, 6×6 Hex, NetHack | 6×6 Hex now, 5×5 Go next |
-| Models | 8 frontier models | 1–2 inexpensive models |
+| Harness (sandbox, reflection, validator, ledger) | not released | **phase 2: built, dry-run tested and run on Hex and 5×5 Go** |
+| Games | Chess, 5×5 Go, 6×6 Hex, NetHack | 6×6 Hex and 5×5 Go (GNU Go opponent, calibration in report 13) |
+| Models | 8 frontier models | Sonnet 5.5 and Haiku 5.5 (Opus 5.5 probed only) |
 | Checkpoints | 20 (NetHack 40) | 5–10 |
 | Learning cost per lineage | about $1,000–3,000 (chess) | measured on a smoke run first |
 
@@ -43,11 +43,14 @@ paper's equations (Section 2) and appendix (Appendix B settings, Appendix I prom
 
 Full write-up with methods and limitations: [reports/TECHNICAL_REPORT.md](reports/TECHNICAL_REPORT.md).
 
-| Lineage | Model | Reflection effort | Held-out ID, first → second half | Report |
+| Lineage | Model | Reflection effort | Held-out ID, early → late | Report |
 |---|---|---|---|---|
 | `lineage_a2`, `sonnet_medium_rep2` | Sonnet 5.5 | medium | 59 % → 62 % (no plasticity) | [10](reports/10_lineage_a2.md), [12](reports/12_comparison.md) |
 | `sonnet_reflect_high`, `..._rep2` | Sonnet 5.5 | high | 73 % → **83 %** | [12](reports/12_comparison.md) |
 | `haiku_r20` (21 checkpoints) | Haiku 5.5 | medium | 32 % → 31 % (no plasticity) | [12](reports/12_comparison.md) |
+| `hex_haiku_reflect_high`, `..._rep2` | Haiku 5.5 | high | 44 % → 39 % (no plasticity) | [15](reports/15_model_game_comparison.md) |
+| `go_sonnet_reflect_high`, `..._rep2` (Go) | Sonnet 5.5 | high | 57 % → **71 %** | [15](reports/15_model_game_comparison.md) |
+| `go_haiku_reflect_high`, `..._rep2` (Go) | Haiku 5.5 | high | 55 % → 48 % (no plasticity) | [15](reports/15_model_game_comparison.md) |
 
 With two lineages per condition, high-effort reflection ends at 83 % held-out ID against
 62 % for medium (z = 3.25, p = 0.001), from the same starting point. At medium effort the
@@ -56,11 +59,20 @@ its code and the actor used it in most games. Phase 1 (reports 01–04) found th
 lineage's P_sat is noisy and that the paper's 10-point rule alone lets false rises
 through; both shaped how these results are tested.
 
+Early → late is checkpoints 0–3 → 4–7 for the reports 10–12 rows and 0–2 → 3 onward for
+report 15. On 5×5 Go (report 15) Sonnet at high effort also improves
+(57 % → 71 %, p = 0.01) and Haiku at high effort stays flat on both games, so Haiku's flat
+result is not an effort artefact. The two Go Sonnet lineages diverge: one reaches 90 % and
+passes the per-lineage flat-curve test (p = 0.04), the other stays near 30–35 % until its
+last checkpoint and stops at its cost cap. How agents adapt to their limits differs too:
+Sonnet moved play into a saved tool once games ran into the 32-call budget, while Haiku used
+more calls per game over time and kept submitting illegal Go moves.
+
 ## Layout
 
 ```
 plasticity/   metric code (score, cost, fit, P_sat, bootstrap, pricing)
-envs/         6x6 Hex rules, alpha-beta opponent, opening banks, move diagnostics
+envs/         6x6 Hex and 5x5 Go rules, opponents (alpha-beta, GNU Go over GTP), opening banks, move diagnostics
 harness/      sandbox, game API, inventory validator, prompts, episode, reflection, runner
 tests/        pytest suite
 scripts/      experiments that write the markdown files in reports/
@@ -96,9 +108,10 @@ What you see:
 
 ```
 $ uv run pytest
-........................................................................ [ 76%]
-......................                                                   [100%]
-94 passed
+........................................................................ [ 43%]
+........................................................................ [ 87%]
+.....................                                                    [100%]
+165 passed
 $ uv run python scripts/validate_recovery.py
 wrote reports/01_parameter_recovery.md
 ```
