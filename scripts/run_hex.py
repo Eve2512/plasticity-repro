@@ -62,6 +62,8 @@ def report(results: dict, run_dir: Path, path: Path) -> None:
         f"# 10 Lineage `{run_dir.name}`: {results['model']} on {GAMES[cfg.get('game', 'hex')].title}",
         "",
         f"Checkpoints {span}; games per checkpoint {cfg['games']}; openings: {cfg['openings']}.",
+        *(["Reflection saw no game records (limitation test 5: experience vs compute)."]
+          if cfg.get("reflection_feedback") == "none" else []),
         f"Billed ${results['billed']:.2f} (cap ${cfg['cap']:.2f}); learning cost priced the paper's way "
         f"${results['learning_cost']:.2f}.",
         "",
@@ -111,6 +113,8 @@ def main(argv):
     parser.add_argument("--thinking-display", default="summarized", choices=["summarized", "omitted", "unset"],
                         help="ask for thinking summaries, saved in transcripts but hidden from reflection; "
                              "'unset' sends no thinking field, as in the runs before 2026-10-28")
+    parser.add_argument("--no-feedback", action="store_true",
+                        help="reflection gets no game records (limitation test 5: experience vs compute)")
     parser.add_argument("--rounds", type=int, default=7, help="learning rounds: checkpoints 0..rounds")
     parser.add_argument("--train", type=int, default=8)
     parser.add_argument("--id", type=int, default=12)
@@ -178,6 +182,7 @@ def main(argv):
         billing=billing,
         cap=args.cap,
         workers=args.workers,
+        reflection_feedback="none" if args.no_feedback else "full",
     )
     results = run_lineage(model, run_dir, cfg, model_factory=factory, resume=args.resume)
     out = run_dir / "report.md" if args.dry else ROOT / "reports" / f"10_{args.name}.md"

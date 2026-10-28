@@ -34,6 +34,12 @@ from plasticity.psat import plasticity_to_saturation
 from plasticity.significance import rise_p_value
 
 SPLITS = ("train", "id", "ood")
+RESUME_DEFAULTS = {"game": "hex", "reflection_feedback": "full"}  # for runs written before these keys existed
+NO_FEEDBACK_NOTE = """\
+No records of the training games are available in this round: no transcripts, \
+moves, results or diagnostics. Your current inventory and the protocol files are \
+here as usual. Improve the infrastructure for future games using your own reasoning.
+"""
 
 
 @dataclass
@@ -50,6 +56,7 @@ class RunConfig:
     billing: PriceTable | None = None  # what the provider charges; defaults to `prices`
     cap: float | None = None  # stop before any call once billed spend reaches this (USD)
     workers: int = 1  # games played at once (separate processes); needs a model factory
+    reflection_feedback: str = "full"  # "none": reflection sees no game records (experience-vs-compute control)
 
 
 @dataclass(frozen=True)
@@ -183,8 +190,8 @@ def run_lineage(model: Model, run_dir: Path, cfg: RunConfig = RunConfig(), model
 def _prepare_resume(run_dir: Path, cfg: RunConfig) -> tuple[list[dict], float]:
     """Keep completed checkpoints; clear the unfinished one and set its spend aside."""
     prev = json.loads((run_dir / "results.json").read_text())
-    for key in ("game", "rounds", "games", "openings", "train_id_levels", "ood_levels"):
-        old, new = prev["config"].get(key, "hex" if key == "game" else None), asdict(cfg)[key]
+    for key in ("game", "rounds", "games", "openings", "train_id_levels", "ood_levels", "reflection_feedback"):
+        old, new = prev["config"].get(key, RESUME_DEFAULTS.get(key)), asdict(cfg)[key]
         if json.loads(json.dumps(old)) != json.loads(json.dumps(new)):
             raise ValueError(f"cannot resume: {key} was {old}, now {new}")
     checkpoints = prev["checkpoints"]
@@ -222,7 +229,11 @@ def _checkpoints(model, model_factory, run_dir, cfg, ledger, inventory, checkpoi
                           "unfinished": sum(r.end_reason != "finished" for r, _, _ in played[split])}
         if t < cfg.rounds:
             feedback = run_dir / "feedback" / f"checkpoint_{t:03d}"
-            write_feedback(feedback, played["train"], GAMES[cfg.game])
+            if cfg.reflection_feedback == "none":  # training games still played and paid for
+                feedback.mkdir(parents=True, exist_ok=True)
+                (feedback / "README.md").write_text(NO_FEEDBACK_NOTE)
+            else:
+                write_feedback(feedback, played["train"], GAMES[cfg.game])
             outcome = reflect(model, inventory, feedback, run_dir / "reflect" / f"checkpoint_{t:03d}",
                               hidden=[run_dir], ledger=ledger, checkpoint=t, cfg=cfg.reflection)
             row["reflection"] = {"accepted": outcome.accepted, "attempts": outcome.attempts}
