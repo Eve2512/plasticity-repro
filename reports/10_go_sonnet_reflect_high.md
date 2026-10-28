@@ -1,6 +1,6 @@
 # 10 Lineage `go_sonnet_reflect_high`: anthropic/claude-sonnet-5.5 on 5x5 Go
 
-Checkpoints 0–7; games per checkpoint {'train': 8, 'id': 20, 'ood': 4}; openings: pooled.
+Checkpoints 0–5 completed of 0–7 planned; games per checkpoint {'train': 8, 'id': 20, 'ood': 4}; openings: pooled.
 Billed $13.01 (cap $13.00); learning cost priced the paper's way $24.66.
 
 | Checkpoint | Learning cost so far | Train | Held-out ID | Held-out OOD | Unfinished | Inventory files | Games reading / loading / calling saved artifacts | Reflection |
