@@ -1,5 +1,5 @@
 ---
-pretty_name: "Agent Plasticity on 6x6 Hex: Claude Sonnet 5.5 traces"
+pretty_name: "Agent Plasticity on 6x6 Hex and 5x5 Go: Claude Sonnet 5.5 and Haiku 5.5 traces"
 license: cc-by-4.0
 language:
 - en
@@ -9,6 +9,7 @@ tags:
 - tool-use
 - reflection
 - hex
+- go
 - reproduction
 size_categories:
 - 1K<n<10K
@@ -29,41 +30,47 @@ configs:
   data_files: data/openings.jsonl
 ---
 
-# Agent Plasticity on 6x6 Hex: Claude Sonnet 5.5 traces
+# Agent Plasticity on 6x6 Hex and 5x5 Go: Claude Sonnet 5.5 and Haiku 5.5 traces
 
 Agent traces from a scaled-down, independent reproduction of
 [Agent Plasticity: Measuring Self-Improvement Through Experience](https://arxiv.org/abs/2610.08902)
 (Singh et al., 2026). The paper's authors did not release code or data; this harness was
 rebuilt from the paper's equations and appendix.
 
-A frozen model plays 6×6 Hex against an alpha-beta engine. Between checkpoints the same
+A frozen model plays 6×6 Hex against an alpha-beta engine, or 5×5 Go against GNU Go. Between checkpoints the same
 model reflects on its training games and edits a persistent inventory (Python tools,
 notes, tracking files) that the next checkpoint inherits. Held-out games are never shown
 to reflection.
 
 ## What is in it
 
-| Config | Rows | One row is |
+Every table has a `game` column (`hex` or `go`).
+
+| Config | Rows (Hex + Go) | One row is |
 |---|---|---|
-| `runs` | 7 | a lineage: settings, cost, plasticity fit |
-| `checkpoints` | 56 | a checkpoint: wins per split, learning cost, reflection outcome |
-| `games` | 1,906 | a game: opening, moves, per-move diagnostics, token use, **full transcript** |
-| `reflections` | 53 | a reflection attempt: full transcript, validator result |
-| `inventories` | 227 | a file the agent saved, at a checkpoint (code, notes, tracking JSON) |
-| `calls` | 23,919 | a model call: tokens (input, cached, cache write, output) and charged cost |
-| `openings` | 234 | a starting position from the legacy, contested or pooled bank |
+| `runs` | 9 + 4 | a lineage: settings, cost, plasticity fit |
+| `checkpoints` | 72 + 30 | a checkpoint: wins per split, learning cost, reflection outcome |
+| `games` | 2,290 + 992 | a game: opening, moves, per-move diagnostics, token use, **full transcript** |
+| `reflections` | 67 + 27 | a reflection attempt: full transcript, validator result |
+| `inventories` | 320 + 155 | a file the agent saved, at a checkpoint (code, notes, tracking JSON) |
+| `calls` | 29,896 + 13,525 | a model call: tokens (input, cached, cache write, output) and charged cost |
+| `openings` | 234 + 112 | a starting position from the legacy, contested or pooled bank |
 
 Runs (via OpenRouter; games always at effort `medium`):
 
-| `run_id` | Model | Reflection effort | Checkpoints | Games per checkpoint (train / ID / OOD) | Openings |
-|---|---|---|---|---|---|
-| `smoke` | Sonnet 5.5 | medium | 0–1 | 4 / 4 / 2 | legacy (10/11-ply) |
-| `lineage_a` | Sonnet 5.5 | medium | 0 (+2 games of 1) | 8 / 12 / 4 | contested (stopped: ID bank harder than train) |
-| `lineage_a2` | Sonnet 5.5 | medium | 0–7 | 8 / 12 / 4 | pooled |
-| `sonnet_medium_rep2` | Sonnet 5.5 | medium | 0–7 | 8 / 12 / 4 | pooled |
-| `sonnet_reflect_high` | Sonnet 5.5 | high | 0–7 | 8 / 12 / 4 | pooled |
-| `sonnet_reflect_high_rep2` | Sonnet 5.5 | high | 0–7 | 8 / 12 / 4 | pooled |
-| `haiku_r20` | Haiku 5.5 | medium | 0–20 | 20 / 24 / 8 | pooled |
+| `run_id` | Game | Model | Reflection effort | Checkpoints | Games per checkpoint (train / ID / OOD) | Openings |
+|---|---|---|---|---|---|---|
+| `smoke` | Hex | Sonnet 5.5 | medium | 0–1 | 4 / 4 / 2 | legacy (10/11-ply) |
+| `lineage_a` | Hex | Sonnet 5.5 | medium | 0 (+2 games of 1) | 8 / 12 / 4 | contested (stopped: ID bank harder than train) |
+| `lineage_a2` | Hex | Sonnet 5.5 | medium | 0–7 | 8 / 12 / 4 | pooled |
+| `sonnet_medium_rep2` | Hex | Sonnet 5.5 | medium | 0–7 | 8 / 12 / 4 | pooled |
+| `sonnet_reflect_high` | Hex | Sonnet 5.5 | high | 0–7 | 8 / 12 / 4 | pooled |
+| `sonnet_reflect_high_rep2` | Hex | Sonnet 5.5 | high | 0–7 | 8 / 12 / 4 | pooled |
+| `haiku_r20` | Hex | Haiku 5.5 | medium | 0–20 | 20 / 24 / 8 | pooled |
+| `hex_haiku_reflect_high`, `..._rep2` | Hex | Haiku 5.5 | high | 0–7 | 8 / 12 / 4 | pooled |
+| `go_sonnet_reflect_high` | Go | Sonnet 5.5 | high | 0–5 (6 played, stopped by its cost cap) | 8 / 20 / 4 | pooled, training draw changes per checkpoint |
+| `go_sonnet_reflect_high_rep2` | Go | Sonnet 5.5 | high | 0–7 | 8 / 20 / 4 | as above |
+| `go_haiku_reflect_high`, `..._rep2` | Go | Haiku 5.5 | high | 0–7 | 8 / 20 / 4 | as above |
 
 ## Main result
 
@@ -76,25 +83,44 @@ at 83 % against 62 % for medium over checkpoints 4–7 (z = 3.25, p = 0.001). Ha
 near 31 % over 21 checkpoints despite busy reflection. Details: `reports/12_comparison.md`
 in the source repository.
 
+All later runs reflect at effort `high` (report 15). Between checkpoints 0–2 and 3 onward,
+Sonnet rises on both games (Hex 69 % → 83 %, Go 57 % → 71 %) and Haiku does not (Hex 44 % →
+39 %, Go 55 % → 48 %). The two Go Sonnet lineages diverge: one reaches 90 %, the other stays
+near 30–35 % until its last complete checkpoint and then loses 9 of 32 games to tool
+timeouts after calling its own tool with a much larger search budget.
+
 ## Fields worth knowing
 
 - `games.messages`: the actor's conversation. Assistant turns hold visible text and tool
   calls (`bash`, `python`, `submit_action`); `tool` turns hold outputs.
-- `games.diagnostics`: per actor move, missed immediate wins, preventable immediate
-  losses, and connection distance before and after (the feedback reflection received).
-- `games.checkpoint_complete`: false for the two `lineage_a` games played after the
-  checkpoint it stopped at.
+- `games.diagnostics`: the feedback reflection received, per actor move. Hex: missed
+  immediate wins, preventable immediate losses, connection distance before and after. Go:
+  stones captured, largest capture available, liberties after, stones in atari, area margin
+  before and after, and the labels `self_atari` and `pass_while_behind`.
+- `games.opponent_level`: Hex, alpha-beta nodes per move; Go, GNU Go 3.8 level (5–9 train
+  and ID, 10 OOD).
+- `games.actor`: `red`/`blue` (Hex) or `black`/`white` (Go).
+- `games.end_reason`: `finished`, `budget` (32 model calls used) or `timeout` (a second
+  tool call over 240 s); the last two count as losses.
+- `games.checkpoint_complete`: false for games of a checkpoint the run never completed
+  (two `lineage_a` games and checkpoint 6 of `go_sonnet_reflect_high`).
+- `openings.difficulty`: Hex, engine-scored; Go, GNU Go level 10's mean final margin
+  against levels 5, 7 and 9. Not comparable across games.
 - `inventories`: one row per file per checkpoint, so artifact changes can be diffed.
 - `calls.cost_usd`: OpenRouter's reported charge for that call.
 
 ## How it differs from the paper
 
-- 6×6 Hex only; one model; 8 checkpoints instead of 20; far fewer games per checkpoint.
+- 6×6 Hex and 5×5 Go only (no chess or NetHack); two models; 8 checkpoints instead of 20
+  (21 for `haiku_r20`); far fewer games per checkpoint.
 - Opponent: a pure-Python alpha-beta engine at 3k–100k nodes per move (train and ID) and
   1M (OOD), scaled down from the paper's 10k–1M and 10M.
 - Openings: 4/5-ply instead of 10/11-ply (except `smoke`), filtered so a weak player loses
   and a 30k-node engine wins, and for `lineage_a2` dealt to the splits by engine-scored
   difficulty.
+- Go: 2-ply (Black) / 3-ply (White) openings, kept if always playing the first legal action
+  loses and GNU Go level 10 wins; from the empty board GNU Go as Black wins every game.
+  Scored by GNU Go's `final_score` (Chinese rules, dead stones removed), komi 9.5.
 - Prompts are paraphrased from the paper's Appendix I (same rules, budgets and schemas).
 - Sandbox: macOS `sandbox-exec` instead of a container.
 
@@ -102,11 +128,12 @@ in the source repository.
 
 - **No hidden reasoning.** The API returns thinking blocks empty by default, so transcripts
   contain actions and visible text only.
-- **Small samples.** 12 held-out ID games per checkpoint; differences under about 20 points
+- **Small samples.** 12 (Hex) or 20 (Go) held-out ID games per checkpoint; differences under about 20 points
   between halves of the run are not detectable.
-- **Two lineages** per reflection-effort condition for Sonnet, one for Haiku.
+- **Two lineages** per condition, except `haiku_r20` (one).
 - **Not every dollar is here.** About $0.07 from a first start of `lineage_a2` (restarted to
-  add connection retries) and $0.002 from an endpoint probe are not included.
+  add connection retries), $0.002 from an endpoint probe, $2.21 of Go cost probes and $0.33
+  of a `go_sonnet_reflect_high` checkpoint redone after a crash are not included.
 
 ## Privacy and provenance
 
@@ -114,7 +141,7 @@ Local file paths are replaced by `<repo>` and `/Users/<user>`. The export script
 any string looks like an API key, bearer token or email address. No personal data is in
 the games; the model only saw game states and its own files.
 
-Model outputs are from Claude Sonnet 5.5 (Anthropic) accessed through OpenRouter; check
+Model outputs are from Claude Sonnet 5.5 and Claude Haiku 5.5 (Anthropic) accessed through OpenRouter; check
 both providers' terms before reuse.
 
 ## Citation
