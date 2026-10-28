@@ -112,3 +112,19 @@ def test_reflection_cannot_read_outside_workspace(setup):
     reflect(ScriptedModel(policy), parent, feedback, root / "r", [root], Ledger(PriceTable(1, 1)), 0,
             ReflectionConfig(max_attempts=1))
     assert "Operation not permitted" in outputs[0]
+
+
+def test_feedback_transcripts_hide_the_actors_thinking(tmp_path):
+    from harness.model import ModelTurn, assistant_message, serialise_messages
+
+    turn = ModelTurn("", thinking="I think C2 wins.")
+    messages = [{"role": "user", "content": "play"}, assistant_message(turn)]
+    saved = serialise_messages(messages)
+    assert saved[1]["thinking"] == "I think C2 wins." and "raw" not in saved[1]
+    transcript = tmp_path / "game.json"
+    transcript.write_text(json.dumps({"messages": saved}))
+    result = GameResult("checkpoint_000_train_g01_red", "X", "X", 1.0, "finished", 1, [], 0)
+    write_feedback(tmp_path / "feedback", [(result, transcript, None)])
+    record = json.loads((tmp_path / "feedback" / "games" / f"{result.game_id}.json").read_text())
+    assert "thinking" not in json.dumps(record["transcript"])
+

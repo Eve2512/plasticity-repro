@@ -177,3 +177,13 @@ def test_model_spec_pickles_and_hides_the_key():
 def test_unknown_model_needs_a_price_table():
     with pytest.raises(ValueError):
         AnthropicModel("claude-unknown", client=FakeClient(None))
+
+
+def test_thinking_summary_is_requested_and_kept():
+    content = [NS(type="thinking", thinking="B3 connects both stones."), NS(type="text", text=""),
+               NS(type="tool_use", id="t1", name="bash", input={"command": "echo B3"})]
+    client = FakeClient(response("tool_use", content))
+    model = AnthropicModel("claude-haiku-5-5", client=client, thinking_display="summarized")
+    turn = model.step("sys", [{"role": "user", "content": "go"}], [BASH])
+    assert client.kwargs["thinking"] == {"type": "adaptive", "display": "summarized"}
+    assert turn.thinking == "B3 connects both stones." and turn.raw is content

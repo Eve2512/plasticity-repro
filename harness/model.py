@@ -41,6 +41,7 @@ class ModelTurn:
     usage: Usage = field(default_factory=Usage)
     raw: object = None  # provider content to send back unchanged (e.g. thinking blocks)
     stop_reason: str | None = None
+    thinking: str = ""  # thinking summary, when the model was asked to display one
 
 
 class Model(Protocol):
@@ -69,6 +70,20 @@ GET_STATE = ToolSpec("get_state", "Return the current real game state.", {"type"
 GET_LEGAL_ACTIONS = ToolSpec(
     "get_legal_actions", "Return the legal actions on the real board.", {"type": "object", "properties": {}}
 )
+
+
+def assistant_message(turn: ModelTurn) -> dict:
+    """The history entry for a model turn; a thinking summary is kept for the transcript only."""
+    m = {"role": "assistant", "content": turn.text, "tool_calls": list(turn.tool_calls), "raw": turn.raw}
+    if turn.thinking:
+        m["thinking"] = turn.thinking
+    return m
+
+
+def without_thinking(messages: list[dict]) -> list[dict]:
+    """Transcript as reflection sees it: the actor's thinking summaries removed, so recording
+    them does not change what reflection learns from (the runs before 2026-10-28 saved none)."""
+    return [{k: v for k, v in m.items() if k != "thinking"} for m in messages]
 
 
 def serialise_messages(messages: list[dict]) -> list[dict]:

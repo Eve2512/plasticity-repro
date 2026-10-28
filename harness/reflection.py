@@ -18,7 +18,7 @@ from harness import prompts
 from harness.episode import GameResult
 from harness.inventory import validate
 from harness.ledger import Ledger
-from harness.model import BASH, Model, serialise_messages
+from harness.model import BASH, Model, assistant_message, serialise_messages, without_thinking
 from harness.sandbox import run_bash
 
 _VALIDATOR = Path(__file__).with_name("validate_tracking.py")
@@ -57,7 +57,7 @@ def write_feedback(feedback: Path, games: list[tuple[GameResult, Path | None, Pa
             "diagnostics": spec.diagnose([(m["before"], m["action"]) for m in result.moves]),
         }
         if transcript and transcript.exists():
-            record["transcript"] = json.loads(transcript.read_text())["messages"]
+            record["transcript"] = without_thinking(json.loads(transcript.read_text())["messages"])
         (games_dir / f"{result.game_id}.json").write_text(json.dumps(record, indent=1))
         if session and session.exists():
             shutil.copytree(session, games_dir / f"{result.game_id}_session", dirs_exist_ok=True)
@@ -126,7 +126,7 @@ def reflect(
             turn = model.step(prompts.SYSTEM, messages, [BASH])
             calls += 1
             ledger.add(checkpoint, "reflect", f"checkpoint_{checkpoint:03d}_attempt_{attempt}", turn.usage)
-            messages.append({"role": "assistant", "content": turn.text, "tool_calls": list(turn.tool_calls), "raw": turn.raw})
+            messages.append(assistant_message(turn))
             if not turn.tool_calls:
                 break
             for call in turn.tool_calls:

@@ -108,6 +108,9 @@ def main(argv):
     parser.add_argument("--effort", default="medium", choices=["low", "medium", "high", "xhigh", "max"])
     parser.add_argument("--reflect-effort", default=None, choices=["low", "medium", "high", "xhigh", "max"],
                         help="effort for reflection only (default: same as --effort); needs --workers > 1")
+    parser.add_argument("--thinking-display", default="summarized", choices=["summarized", "omitted", "unset"],
+                        help="ask for thinking summaries, saved in transcripts but hidden from reflection; "
+                             "'unset' sends no thinking field, as in the runs before 2026-10-28")
     parser.add_argument("--rounds", type=int, default=7, help="learning rounds: checkpoints 0..rounds")
     parser.add_argument("--train", type=int, default=8)
     parser.add_argument("--id", type=int, default=12)
@@ -134,7 +137,7 @@ def main(argv):
 
     games = {"train": args.train, "id": args.id, "ood": args.ood}
     total = sum(games.values()) * (args.rounds + 1)
-    print(f"{GAMES[args.game].title}: {args.model} via {args.provider}, effort {args.effort} (reflection {args.reflect_effort or args.effort}), "
+    print(f"{GAMES[args.game].title}: {args.model} via {args.provider}, effort {args.effort} (reflection {args.reflect_effort or args.effort}), thinking display {args.thinking_display}, "
           f"openings {args.openings}")
     print(f"checkpoints 0-{args.rounds}, games per checkpoint {games}: {total} games + {args.rounds} reflections")
     print(f"stops before any call once ${args.cap:.2f} is billed; {args.workers} game(s) at once")
@@ -150,12 +153,14 @@ def main(argv):
         if not key:
             print(f"no {key_name} in the environment or .env")
             return 1
-        factory = ModelSpec(args.model, key=key, effort=args.effort, provider=args.provider)
+        display = None if args.thinking_display == "unset" else args.thinking_display
+        factory = ModelSpec(args.model, key=key, effort=args.effort, provider=args.provider, thinking_display=display)
     # Games use `factory` (workers > 1); reflection uses `model`.
     if args.reflect_effort and not args.dry:
         if args.workers < 2:
             parser.error("--reflect-effort needs --workers > 1 (games then use their own model)")
-        model = ModelSpec(args.model, key=key, effort=args.reflect_effort, provider=args.provider)()
+        model = ModelSpec(args.model, key=key, effort=args.reflect_effort, provider=args.provider,
+                          thinking_display=display)()
     else:
         model = factory()
 
