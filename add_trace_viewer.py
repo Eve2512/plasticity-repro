@@ -1,5 +1,5 @@
 """
-Add a `trace_viewer` config to Eve39570/agent-plasticity-hex.
+Add a `trace_viewer` config to Eve39570/agent-plasticity-hex-go.
 
 Dry run (writes and checks the files on your Mac, uploads nothing):
     uv run --with huggingface_hub python add_trace_viewer.py
@@ -19,8 +19,8 @@ from pathlib import Path
 from huggingface_hub import DatasetCard, HfApi, hf_hub_download
 
 # ---------------------------------------------------------------- 2. Settings
-REPO = "Eve39570/agent-plasticity-hex"
-HARNESS = "agent-plasticity-hex"
+REPO = "Eve39570/agent-plasticity-hex-go"
+HARNESS = "agent-plasticity-hex-go"
 OUT = Path("traces")
 CONFIG = {
     "config_name": "trace_viewer",

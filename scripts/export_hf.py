@@ -2,7 +2,7 @@
 
     uv run python scripts/export_hf.py
 
-Writes export/agent-plasticity-hex/ (git-ignored): data/*.jsonl and README.md.
+Writes export/agent-plasticity-hex-go/ (git-ignored): data/*.jsonl and README.md.
 Covers both games (6x6 Hex and 5x5 Go); every table has a `game` column.
 Every string is scrubbed of local paths and the user name, and the export stops
 if anything that looks like a key, token or email address is left.
@@ -19,7 +19,7 @@ from envs.games import GAMES
 from envs.hex_openings import BANK_FILE, POOLED_FILE, split_banks
 
 ROOT = Path(__file__).resolve().parent.parent
-OUT = ROOT / "export" / "agent-plasticity-hex"
+OUT = ROOT / "export" / "agent-plasticity-hex-go"
 CARD = Path(__file__).with_name("hf_dataset_card.md")
 
 # Model runs only; scripted dry runs are not model data.
