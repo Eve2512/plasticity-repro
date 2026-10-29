@@ -53,7 +53,15 @@ RUNS = [
         ("go_haiku_reflect_high", "Haiku 5.5 on 5x5 Go, 8/20/4 games per checkpoint."),
         ("go_haiku_reflect_high_rep2", "Replicate of go_haiku_reflect_high."),
     )),
+    # limitation test 5 (reports/18_experience_vs_compute.md): reflection without game records
+    *({"run_id": name, "dir": name, "openings": "pooled", "report": f"reports/10_{name}.md", "reflect_effort": "high",
+       "reflection_feedback": "none", "note": note} for name, note in (
+        ("sonnet_nofeedback_high", "As sonnet_reflect_high, but reflection got no game records (test 5). "
+                                   "Thinking summaries recorded."),
+        ("sonnet_nofeedback_high_rep2", "Replicate of sonnet_nofeedback_high."),
+    )),
 ]
+ABLATED = ["sonnet_reflect_high", "sonnet_reflect_high_rep2"]  # limitation test 6, reports/17_artifact_ablation.md
 EFFORT = "medium"  # actor effort in every run
 PROVIDER = "openrouter"
 
@@ -121,6 +129,7 @@ def run_row(run, results):
         "run_id": run["run_id"], "game": run.get("game", "hex"), "model": results["model"], "provider": PROVIDER,
         "effort": EFFORT,
         "reflect_effort": run.get("reflect_effort", EFFORT),
+        "reflection_feedback": run.get("reflection_feedback", "full"),
         "openings": run["openings"], "rounds": cfg["rounds"], "games_per_checkpoint": cfg["games"],
         "train_id_levels": cfg["train_id_levels"], "ood_levels": cfg["ood_levels"],
         "actor_max_calls": cfg["episode"]["max_calls"], "reflection_max_calls": cfg["reflection"]["max_calls"],
@@ -177,6 +186,27 @@ def reflection_rows(run, usage):
                "messages": d["messages"]}
 
 
+def replay_rows(run):
+    """Thinking replay of saved reflection turns (reports/16_thinking_replay.md)."""
+    for f in sorted((ROOT / "runs" / run["dir"] / "thinking_replay").glob("checkpoint_*_attempt_*.jsonl")):
+        t, attempt = int(f.stem.split("_")[1]), int(f.stem.split("_")[3])
+        for line in f.read_text().splitlines():
+            yield {"run_id": run["run_id"], "game": run.get("game", "hex"), "checkpoint": t, "attempt": attempt,
+                   **json.loads(line)}
+
+
+def ablation_rows(name):
+    """Held-out ID games from the final checkpoint with the inventory kept, removed or forced."""
+    for f in sorted((ROOT / "runs" / name).glob("ablation_checkpoint_*/*/games/*.json")):
+        g = json.loads(f.read_text())
+        r = g["result"]
+        yield {"run_id": name, "game": "hex", "checkpoint": int(f.parts[-4].split("_")[-1]), "arm": f.parts[-3],
+               "game_id": r["game_id"], "actor": GAMES["hex"].colours[r["actor"]], "opening": g["opening"],
+               "moves": r["moves"], "winner": r["winner"], "score": r["score"], "end_reason": r["end_reason"],
+               "model_calls": r["model_calls"], "invalid_submissions": r["invalid_submissions"],
+               "messages": g["messages"]}
+
+
 def inventory_rows(run):
     run_dir = ROOT / "runs" / run["dir"]
     for inv in sorted(run_dir.glob("inventories/checkpoint_*")):
@@ -209,7 +239,8 @@ def main():
     if OUT.exists():
         shutil.rmtree(OUT)
     (OUT / "data").mkdir(parents=True)
-    tables = {name: [] for name in ("runs", "checkpoints", "games", "reflections", "inventories", "calls", "openings")}
+    tables = {name: [] for name in ("runs", "checkpoints", "games", "reflections", "inventories", "calls", "openings",
+                                        "thinking_replay", "ablation_games")}
     for run in RUNS:
         run_dir = ROOT / "runs" / run["dir"]
         if not (run_dir / "results.json").exists():
@@ -223,6 +254,9 @@ def main():
         tables["reflections"] += reflection_rows(run, usage)
         tables["inventories"] += inventory_rows(run)
         tables["calls"] += calls_rows(run)
+        tables["thinking_replay"] += replay_rows(run)
+    for name in ABLATED:
+        tables["ablation_games"] += ablation_rows(name)
     tables["openings"] += opening_rows()
 
     problems = []
