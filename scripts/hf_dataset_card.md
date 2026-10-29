@@ -69,7 +69,7 @@ Every table has a `game` column (`hex` or `go`).
 | `openings` | 234 + 112 | a starting position from the legacy, contested or pooled bank |
 | `thinking_replay` | 830 + 547 | a saved reflection turn sent again with thinking summaries on: recorded and replayed calls, summary |
 | `ablation_games` | 144 + 0 | a held-out ID game from a final checkpoint with the inventory kept, removed or forced (`arm`) |
-| `trace_viewer` | 3,918 | a game, reflection or ablation-game transcript in the Hub Session Trace format, with thinking summaries (live, or replayed and labelled), for the trace viewer |
+| `trace_viewer` | 3,918 | a game, reflection or ablation-game transcript in Pi's session format, with thinking summaries (live, or replayed and labelled), for the trace viewer |
 
 Runs (via OpenRouter; games always at effort `medium`):
 
