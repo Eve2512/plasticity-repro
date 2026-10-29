@@ -4,7 +4,7 @@ Independent, scaled-down reproduction of *Agent Plasticity: Measuring Self-Impro
 Through Experience* (Singh et al., arXiv:2610.08902, October 2026). The authors released
 no code; everything here was rebuilt from the paper's equations (Section 2) and appendix
 (Appendix B settings, Appendix I prompts). Data: the Hugging Face dataset
-`Eve39570/agent-plasticity-hex` (3,666 game transcripts on both games, 108 reflection logs, 1,377 replayed reflection turns, 144 ablation games).
+`Eve39570/agent-plasticity-hex-go` (3,666 game transcripts on both games, 108 reflection logs, 1,377 replayed reflection turns, 144 ablation games).
 
 ## Summary
 
