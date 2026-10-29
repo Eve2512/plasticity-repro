@@ -27,15 +27,19 @@ CONFIG = {
     "data_files": [
         {
             "split": "train",
-            "path": ["traces/games/*.jsonl", "traces/reflections/*.jsonl"],
+            "path": ["traces/games/*.jsonl", "traces/reflections/*.jsonl", "traces/ablation/*.jsonl"],
         }
     ],
 }
 TRANSCRIPT_COLUMNS = ["messages", "transcript", "conversation"]
 TABLE_ROW = (
-    "| `trace_viewer` | 1,959 | a game or reflection transcript in the Hub "
-    "Session Trace format, for the trace viewer |"
+    "| `trace_viewer` | {n} | a game, reflection or ablation-game transcript in the Hub "
+    "Session Trace format, with thinking summaries (live, or replayed and labelled), for the trace viewer |"
 )
+REPLAYED = ("[Replayed thinking summary: the same input was sent again with thinking on; "
+            "a new sample, not what this run thought.]\n\n")
+KINDS = (("game", "games", "games"), ("reflection", "reflections", "reflections"),
+         ("ablation game", "ablation_games", "ablation"))  # (kind, config, folder)
 
 
 # ---------------------------------------------------------------- 3. Small helpers
@@ -83,12 +87,15 @@ def convert(messages):
         if role not in ("user", "assistant", "system", "tool"):
             raise ValueError(f"Unknown role: {role!r}")
         msg = {"role": role, "content": as_text(m.get("content"))}
+        if m.get("thinking"):
+            msg["reasoningContent"] = m["thinking"]  # a thinking summary, not the raw chain of thought
 
-        calls = m.get("tool_calls") or []
+        calls = as_list(m.get("tool_calls"))
         if calls:
             msg["toolCalls"] = []
             for i, c in enumerate(calls):
-                fn = c.get("function") or {}
+                # Our transcripts store {id, name, args}; OpenAI-style ones store {id, function: {name, arguments}}.
+                fn = c.get("function") or {"name": c.get("name"), "arguments": c.get("args")}
                 call_id = c.get("id") or f"call_{len(lines)}_{i}"
                 msg["toolCalls"].append(
                     {
@@ -173,8 +180,8 @@ def find_column(rows, name):
 
 
 def session_id(row, i, kind):
-    parts = [str(row.get("run_id") or "run"), kind]
-    for key in ("checkpoint", "game_id", "episode", "attempt"):
+    parts = [str(row.get("run_id") or "run"), kind.replace(" ", "_")]
+    for key in ("checkpoint", "arm", "game_id", "episode", "attempt"):
         if row.get(key) is not None:
             parts.append(str(row[key]))
     parts.append(f"{i:05d}")  # the row number makes each id unique
@@ -185,6 +192,8 @@ def session_name(row, kind):
     parts = [str(row.get("run_id") or "run"), kind]
     if row.get("checkpoint") is not None:
         parts.append(f"checkpoint {row['checkpoint']}")
+    if row.get("arm"):
+        parts.append(f"{row['arm']} arm")
     for key in ("game_id", "episode", "attempt"):
         if row.get(key) is not None:
             parts.append(str(row[key]))
@@ -210,6 +219,7 @@ def check(path):
         assert "role" in msg and "content" in msg, f"{path}: no role or content"
         for c in msg.get("toolCalls", []):
             assert isinstance(c["function"]["arguments"], str), f"{path}: arguments not a string"
+            assert c["function"]["name"], f"{path}: tool call without a name"
             call_ids.add(c["id"])
         if "toolCallId" in msg:
             assert msg["toolCallId"] in call_ids, f"{path}: tool result has no matching call"
@@ -222,28 +232,35 @@ def main():
     parser.add_argument("--push", action="store_true", help="upload files and update the card")
     args = parser.parse_args()
 
-    # 6a. Load the two tables that hold transcripts
-    games = load_rows("games")
-    reflections = load_rows("reflections")
-    g_col = find_column(games, "games")
-    r_col = find_column(reflections, "reflections")
+    # 6a. Load the tables that hold transcripts
+    tables = {config: load_rows(config) for _, config, _ in KINDS}
+    columns = {config: find_column(rows, config) for config, rows in tables.items()}
+
+    # 6a2. Reflections recorded before thinking was saved: attach the replayed summaries, labelled
+    replay = {(r["run_id"], r["checkpoint"], r["attempt"], r["message_index"]): r["thinking"]
+              for r in load_rows("thinking_replay") if r["thinking"].strip()}
+    for row in tables["reflections"]:
+        messages = as_list(row[columns["reflections"]])
+        for i, m in enumerate(messages):
+            key = (row["run_id"], row["checkpoint"], row["attempt"], i)
+            if m.get("role") == "assistant" and not m.get("thinking") and key in replay:
+                m["thinking"] = REPLAYED + replay[key]
+        row[columns["reflections"]] = messages
 
     # 6b. Show the keys of the first messages, so you can check the shape
-    print(f"games column: {g_col} | reflections column: {r_col}")
     print("Keys in the first 3 messages of game 0:")
-    for m in as_list(games[0][g_col])[:3]:
+    for m in as_list(tables["games"][0][columns["games"]])[:3]:
         print("   ", sorted(k for k, v in m.items() if v is not None))
 
     # 6c. Start with an empty output folder
     if OUT.exists():
         shutil.rmtree(OUT)
-    (OUT / "games").mkdir(parents=True)
-    (OUT / "reflections").mkdir(parents=True)
 
-    # 6d. Write one file per game and one file per reflection
-    for kind, ds, col in (("game", games, g_col), ("reflection", reflections, r_col)):
-        folder = OUT / ("games" if kind == "game" else "reflections")
-        for i, row in enumerate(ds):
+    # 6d. Write one file per game, reflection and ablation game
+    for kind, config, folder_name in KINDS:
+        folder = OUT / folder_name
+        folder.mkdir(parents=True)
+        for i, row in enumerate(tables[config]):
             sid = session_id(row, i, kind)
             run = str(row.get("run_id") or "")
             header = {
@@ -254,24 +271,26 @@ def main():
                 "model": "claude-haiku-5.5" if "haiku" in run else "claude-sonnet-5.5",
                 "kind": kind,
             }
-            write_session(folder / f"{sid}.jsonl", header, as_list(row[col]))
+            write_session(folder / f"{sid}.jsonl", header, as_list(row[columns[config]]))
 
     # 6e. Check every file
     files = sorted(OUT.rglob("*.jsonl"))
     total = sum(check(p) for p in files)
-    print(f"OK: {len(files)} files, {total} messages, all pass the STS checks.")
+    thinking = sum('"reasoningContent"' in p.read_text(encoding="utf-8") for p in files)
+    print(f"OK: {len(files)} files, {total} messages, all pass the STS checks; {thinking} files carry thinking.")
 
     if not args.push:
         print("Dry run. Open one file in traces/ and look at it. Then run again with --push.")
         return
 
-    # 6f. Upload the files
+    # 6f. Upload the files; old trace files that are not in OUT any more are deleted
     HfApi().upload_folder(
         folder_path=str(OUT),
         path_in_repo="traces",
         repo_id=REPO,
         repo_type="dataset",
-        commit_message="Add trace_viewer files (Session Trace format)",
+        delete_patterns=["*"],
+        commit_message="Rebuild trace_viewer files (Session Trace format, with thinking)",
     )
 
     # 6g. Add the config, the tag and a table row to the dataset card
@@ -285,13 +304,12 @@ def main():
         tags.append("agent-traces")
     card.data.tags = tags
 
-    if "`trace_viewer`" not in card.text:
-        lines = card.text.split("\n")
-        for n, line in enumerate(lines):
-            if line.startswith("| `openings`"):
-                lines.insert(n + 1, TABLE_ROW)
-                break
-        card.text = "\n".join(lines)
+    lines = [x for x in card.text.split("\n") if not x.startswith("| `trace_viewer`")]
+    for n, line in enumerate(lines):
+        if line.startswith("| `ablation_games`"):
+            lines.insert(n + 1, TABLE_ROW.format(n=f"{len(files):,}"))
+            break
+    card.text = "\n".join(lines)
 
     card.push_to_hub(REPO, commit_message="Add trace_viewer config and agent-traces tag")
     print("Pushed. Open Data Studio, select trace_viewer, and click a row.")

@@ -11,6 +11,7 @@ tags:
 - hex
 - go
 - reproduction
+- agent-traces
 size_categories:
 - 1K<n<10K
 configs:
@@ -32,6 +33,13 @@ configs:
   data_files: data/thinking_replay.jsonl
 - config_name: ablation_games
   data_files: data/ablation_games.jsonl
+- config_name: trace_viewer
+  data_files:
+  - split: train
+    path:
+    - traces/games/*.jsonl
+    - traces/reflections/*.jsonl
+    - traces/ablation/*.jsonl
 ---
 
 # Agent Plasticity on 6x6 Hex and 5x5 Go: Claude Sonnet 5.5 and Haiku 5.5 traces
@@ -61,6 +69,7 @@ Every table has a `game` column (`hex` or `go`).
 | `openings` | 234 + 112 | a starting position from the legacy, contested or pooled bank |
 | `thinking_replay` | 830 + 547 | a saved reflection turn sent again with thinking summaries on: recorded and replayed calls, summary |
 | `ablation_games` | 144 + 0 | a held-out ID game from a final checkpoint with the inventory kept, removed or forced (`arm`) |
+| `trace_viewer` | 3,918 | a game, reflection or ablation-game transcript in the Hub Session Trace format, with thinking summaries (live, or replayed and labelled), for the trace viewer |
 
 Runs (via OpenRouter; games always at effort `medium`):
 
