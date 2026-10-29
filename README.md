@@ -36,8 +36,10 @@ paper's equations (Section 2) and appendix (Appendix B settings, Appendix I prom
 2. Checkpoint noise: the paper runs one lineage per model; how stable is a P_sat ranking?
 3. Pricing dependence of P_sat.
 4. Consistency of the reported numbers with the stated game counts.
-5. (Phase 2) Experience versus compute: reflection with the same budget but no feedback.
-6. (Phase 2) Artifact ablation: remove the inventory, or force its use.
+5. (Phase 2) Experience versus compute: reflection with the same budget but no feedback
+   ([report 18](reports/18_experience_vs_compute.md)).
+6. (Phase 2) Artifact ablation: remove the inventory, or force its use
+   ([report 17](reports/17_artifact_ablation.md)).
 
 ## Results so far
 
@@ -67,6 +69,25 @@ passes the per-lineage flat-curve test (p = 0.04), the other stays near 30–35 
 last checkpoint and stops at its cost cap. How agents adapt to their limits differs too:
 Sonnet moved play into a saved tool once games ran into the 32-call budget, while Haiku used
 more calls per game over time and kept submitting illegal Go moves.
+
+Limitation tests 5 and 6 (Hex, Sonnet, reflection effort high):
+
+| Test | Result | Report |
+|---|---|---|
+| 6: remove the final inventory | held-out ID 92 % / 92 % with tools, 54 % / 50 % without; forcing tool use adds nothing | [17](reports/17_artifact_ablation.md) |
+| 5: reflection without game records | the reflector builds no tools (4 of 50 calls per round); held-out ID stays at 62 % pooled | [18](reports/18_experience_vs_compute.md) |
+| 5: same openings, feedback vs none | level at checkpoints 0–2; from checkpoint 3 on, 38 games won only with feedback, 5 only without (p = 2.5e-07) | [18](reports/18_experience_vs_compute.md) |
+
+The gain lives in the saved tools, and the tools come from the game records. Without records the
+reflector chose not to spend its budget, so test 5 does not isolate extra reflection compute. The
+no-feedback lineages still work as a control on identical openings. With nothing changing, the control
+still fell from 72 % to 56 % held-out ID. A single lineage's curve can move that much without any learning.
+
+Thinking: the original runs kept no thinking. [Report 16](reports/16_thinking_replay.md) replays every
+saved reflection turn of 11 runs with thinking summaries on ($4.58). Haiku returned a summary on
+96–100 % of turns, Sonnet on 0–68 %. The replayed turn matched the recorded calls in only 5–40 % of
+turns, so these summaries describe the model's reasoning on the same input, not the original run's.
+Runs from test 5 on record thinking summaries as they go.
 
 ## Layout
 
@@ -111,7 +132,7 @@ $ uv run pytest
 ........................................................................ [ 43%]
 ........................................................................ [ 87%]
 .....................                                                    [100%]
-165 passed
+170 passed
 $ uv run python scripts/validate_recovery.py
 wrote reports/01_parameter_recovery.md
 ```

@@ -4,7 +4,7 @@ Independent, scaled-down reproduction of *Agent Plasticity: Measuring Self-Impro
 Through Experience* (Singh et al., arXiv:2610.08902, October 2026). The authors released
 no code; everything here was rebuilt from the paper's equations (Section 2) and appendix
 (Appendix B settings, Appendix I prompts). Data: the Hugging Face dataset
-`Eve39570/agent-plasticity-hex` (3,282 game transcripts on both games, 94 reflection logs).
+`Eve39570/agent-plasticity-hex` (3,666 game transcripts on both games, 108 reflection logs, 1,126 replayed reflection turns, 144 ablation games).
 
 ## Summary
 
@@ -28,6 +28,15 @@ no code; everything here was rebuilt from the paper's equations (Section 2) and 
   32-call budget, Sonnet moved play into its saved tool at the next checkpoint; Haiku used
   more calls per game over time. One Sonnet lineage later broke the time limit instead,
   by calling its tool with a much larger search budget.
+- **The gain lives in the saved tools, and the tools come from game records.** Removing
+  the final inventory of the two high-effort Hex Sonnet lineages drops held-out ID from
+  92 % to 50–54 % (test 6). Reflection without game records built no tools at all; on the
+  same held-out openings, the feedback lineages won 38 games the no-feedback control lost
+  and lost 5 it won from checkpoint 3 on (p = 2.5e-07, test 5).
+- **A single lineage's curve can move a lot without learning.** The no-feedback control
+  never changed and played the same openings against the same deterministic opponents at
+  every checkpoint, yet its held-out ID fell from 72 % to 56 % (p = 0.024 treating games as
+  independent).
 - **The plasticity metric is fragile at this scale.** On synthetic lineages, the paper's
   10-point rule alone assigns P_sat > 0 to 26–43 % of agents that do not learn; two models
   25 % apart in true P_sat swap rank in 37–46 % of single-lineage comparisons; and the
@@ -91,6 +100,8 @@ curve, and conclusions rest on pooled lineages, not one P_sat.
 | `haiku_r20` | Haiku 5.5 | medium | 29 … 33 (21 checkpoints; mean ≈ 31) | $7.86 |
 | `hex_haiku_reflect_high` | Haiku 5.5 | high | 33, 42, 42, 33, 42, 33, 33, 42 | $1.49 |
 | `hex_haiku_reflect_high_rep2` | Haiku 5.5 | high | 50, 58, 42, 50, 50, 33, 42, 33 | $1.58 |
+| `sonnet_nofeedback_high` | Sonnet 5.5 | high, no game records | 75, 75, 75, 50, 58, 58, 58, 42 | $7.00 |
+| `sonnet_nofeedback_high_rep2` | Sonnet 5.5 | high, no game records | 50, 83, 75, 58, 58, 50, 83, 42 | $6.85 |
 
 On 5×5 Go (20 held-out ID games per checkpoint, report 15):
 
@@ -191,7 +202,63 @@ tool with a far larger search budget (`budget=2500000`); the calls ran past 240 
 32 games were forfeited. The lineage that relaxed one limit (model calls) broke another
 (time). The other Go Sonnet lineage never did this.
 
-### 3.6 Problems found in our own pipeline
+### 3.6 Artifact ablation (limitation test 6)
+
+From the final checkpoint of each high-effort Hex Sonnet lineage, 24 held-out ID games per
+arm with the same model, openings and opponents (report 17, $4.75):
+
+| Lineage | With final inventory | Empty inventory | Inventory, actor told to use it |
+|---|---|---|---|
+| `sonnet_reflect_high` | 92 % | 54 % | 92 % |
+| `sonnet_reflect_high_rep2` | 92 % | 50 % | 83 % |
+
+Without its inventory the agent falls back to about where it started (50 % and 75 % at
+checkpoint 0). Forcing tool use adds nothing because the actor already called its tool in
+every game. The saved tools are the learned part.
+
+### 3.7 Reflection without game records (limitation test 5)
+
+Two more Hex Sonnet lineages ran exactly like the high-effort ones, but reflection found a
+note saying no game records were available in place of the transcripts and diagnostics
+(report 18, $13.85). In all 14 reflections the reflector used 4 of its 50 calls and saved
+nothing. Its thinking summaries give the reason: with nothing observed, any tool would be
+a guess, and the protocol asks every file to address an observed failure mode. The extra
+reflection compute was offered but not used, so this test does not separate experience
+from compute as planned.
+
+The lineages still serve as an untrained control. All four Hex Sonnet high-effort lineages
+play the same 12 held-out ID openings against the same deterministic opponents at every
+checkpoint, so the arms can be compared game by game:
+
+| | Checkpoints 0–2 | Checkpoints 3–7 |
+|---|---|---|
+| Games won only with game records | 8 | 38 |
+| Games won only without | 10 | 5 |
+| Sign test p | 0.81 | 2.5e-07 |
+
+The paired test is far stronger than either lineage's own flat-curve test (p = 0.12–0.13).
+It controls for openings and opponents but not for time: the control ran three days later
+(2026-10-28/29 vs 2026-10-25). At checkpoint 0 the arms are level (15 vs 15 wins).
+
+The control also shows how much a curve can move without learning. Nothing changed
+between its checkpoints, yet its held-out ID fell from 72 % to 56 % (p = 0.024 if games
+are treated as independent, which repeated openings make them not). The drop is spread
+over six openings. The only varying part is the actor's sampling, plus any drift in the
+served model during the run.
+
+### 3.8 Thinking
+
+The runs up to plan A kept no thinking (section 4). To get a view of the reasoning behind
+past reflections, every saved reflection turn of 11 runs was sent again with the same
+context and thinking summaries on (report 16, $4.58; the two Go Sonnet runs were left out
+for budget). Haiku returned a summary on 96–100 % of turns, often 2,000+ characters; Sonnet
+on 52–68 % at reflection effort high and 0–43 % at medium, where adaptive thinking often
+skips simple turns. The replayed turn made the same tool calls as the recorded one in only
+5–40 % of turns, so a replayed summary is the model's reasoning on the same input, not a
+recovery of what the original run thought. The test 5 lineages and all later runs record
+summaries as they go.
+
+### 3.9 Problems found in our own pipeline
 
 - **Opening banks.** Banks drawn from a separate seed per split made held-out ID harder
   than train (Sonnet 8/8 train vs 2/12 ID, z ≈ 3.7). That run was stopped after one
@@ -230,8 +297,15 @@ tool with a far larger search budget (`budget=2500000`); the calls ran past 240 
   only when `display: "summarized"` is requested. The harness sent those blocks back to the
   model but dropped them when saving transcripts, so no run up to plan A kept any thinking,
   and it cannot be recovered. Diagnoses of reflection depth rest on visible actions and the
-  model's own written summaries. New runs record thinking summaries (`--thinking-display`,
+  model's own written summaries. A replay (section 3.8) gives summaries on the same inputs,
+  but they are new samples. New runs record thinking summaries (`--thinking-display`,
   default `summarized`), never the raw chain of thought, which the API does not return.
+- **Test 5 did not isolate compute.** Without game records the reflector chose not to
+  spend its budget, so the extra-compute arm effectively had no compute.
+- **Unexplained drift in the control.** The unchanged no-feedback control lost 16 points
+  of held-out ID over its run (section 3.7). Actor sampling noise or model drift over time
+  could explain it; the data cannot tell them apart, and the control ran days after the
+  lineages it is compared with.
 - **Artifact-use counts are textual**: a game counts as calling a tool if its Python code
   calls an entrypoint; the paper's semantic judge was not reproduced.
 - **Cost-based P_sat is unstable here.** Learning costs are a few dollars, so P_sat values
@@ -249,6 +323,11 @@ tool with a far larger search budget (`budget=2500000`); the calls ran past 240 
    than artifact reuse did.
 7. Log behaviour under the run's limits (calls per game, games lost to budget or timeouts,
    moves per call): adapting to them is part of plasticity, and it can go wrong.
+8. Run an untrained control on the same held-out openings, at the same time, and compare
+   game by game; it separates learning from drift and noise and is much more sensitive
+   than a single curve.
+9. Save thinking summaries with every transcript from the start; they cannot be recovered
+   later.
 
 ## 6. Reproducing this
 
@@ -260,7 +339,13 @@ uv run python scripts/compare_runs.py lineage_a2 sonnet_reflect_high my_run
 brew install gnu-go          # for Go
 scripts/plan_a.sh            # the six reflection-effort-high lineages of report 15
 uv run python scripts/compare_models.py
+uv run python scripts/ablate_inventory.py --yes --cap 8           # test 6, report 17
+uv run python scripts/run_hex.py --model anthropic/claude-sonnet-5.5 --rounds 7 \
+    --train 8 --id 12 --ood 4 --workers 4 --reflect-effort high --no-feedback --cap 9 \
+    --name sonnet_nofeedback_high --yes                          # test 5 (and _rep2)
+uv run python scripts/compare_feedback.py                        # report 18
+uv run python scripts/replay_thinking.py --dry                   # report 16: plan, then --yes
 ```
 
-Total API spend for the whole project: $79.05 (all lineages, smoke runs and probes).
-Reports 01–15 in `reports/` hold every number above.
+Total API spend for the whole project: $102.23 (all lineages, smoke runs, probes, tests 5
+and 6 and the thinking replay). Reports 01–18 in `reports/` hold every number above.
