@@ -1,6 +1,11 @@
 """
 Add a `trace_viewer` config to Eve39570/agent-plasticity-hex-go.
 
+Each transcript is written in Pi's session format (version 3), which the Hub's trace
+viewer reads natively. The Hub's own Session Trace format was tried first; the viewer
+parsed it as Pi and dropped every assistant turn. Timestamps are placeholders (one
+second per message): the harness did not record times.
+
 Dry run (writes and checks the files on your Mac, uploads nothing):
     uv run --with huggingface_hub python add_trace_viewer.py
 
@@ -14,6 +19,7 @@ import fnmatch
 import json
 import shutil
 import sys
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 from huggingface_hub import DatasetCard, HfApi, hf_hub_download
@@ -33,13 +39,16 @@ CONFIG = {
 }
 TRANSCRIPT_COLUMNS = ["messages", "transcript", "conversation"]
 TABLE_ROW = (
-    "| `trace_viewer` | {n} | a game, reflection or ablation-game transcript in the Hub "
-    "Session Trace format, with thinking summaries (live, or replayed and labelled), for the trace viewer |"
+    "| `trace_viewer` | {n} | a game, reflection or ablation-game transcript in Pi's session format, "
+    "with thinking summaries (live, or replayed and labelled), for the trace viewer |"
 )
 REPLAYED = ("[Replayed thinking summary: the same input was sent again with thinking on; "
             "a new sample, not what this run thought.]\n\n")
 KINDS = (("game", "games", "games"), ("reflection", "reflections", "reflections"),
          ("ablation game", "ablation_games", "ablation"))  # (kind, config, folder)
+START = datetime(2026, 10, 1, tzinfo=timezone.utc)  # placeholder clock for the timestamps
+NO_USAGE = {"input": 0, "output": 0, "cacheRead": 0, "cacheWrite": 0, "totalTokens": 0,
+            "cost": {"input": 0, "output": 0, "cacheRead": 0, "cacheWrite": 0, "total": 0}}
 
 
 # ---------------------------------------------------------------- 3. Small helpers
@@ -67,57 +76,53 @@ def as_text(content):
     return json.dumps(content, ensure_ascii=False)
 
 
-def as_json_string(arguments):
-    """STS needs tool arguments as a JSON string, not as a dict."""
-    if arguments is None:
-        return "{}"
+def as_args(arguments):
+    """Pi needs tool arguments as an object, not as a JSON string."""
     if isinstance(arguments, str):
-        return arguments
-    return json.dumps(arguments, ensure_ascii=False)
+        try:
+            arguments = json.loads(arguments)
+        except json.JSONDecodeError:
+            return {"input": arguments}
+    return arguments if isinstance(arguments, dict) else {}
 
 
 # ---------------------------------------------------------------- 4. Convert one transcript
-def convert(messages):
-    """Convert one transcript (OpenAI chat shape) to STS message lines."""
+def convert(messages, model):
+    """Convert one transcript (chat shape) to Pi session entries."""
     lines = []
-    open_calls = []  # ids of tool calls that have no result yet, in order
-
-    for m in messages:
+    names = {}  # tool call id -> tool name, for the results
+    for n, m in enumerate(messages):
         role = m.get("role")
         if role not in ("user", "assistant", "system", "tool"):
             raise ValueError(f"Unknown role: {role!r}")
-        msg = {"role": role, "content": as_text(m.get("content"))}
-        if m.get("thinking"):
-            msg["reasoningContent"] = m["thinking"]  # a thinking summary, not the raw chain of thought
+        when = START + timedelta(seconds=n + 1)
+        ms = int(when.timestamp() * 1000)
 
-        calls = as_list(m.get("tool_calls"))
-        if calls:
-            msg["toolCalls"] = []
+        if role == "assistant":
+            content = []
+            if m.get("thinking"):  # a thinking summary, not the raw chain of thought
+                content.append({"type": "thinking", "thinking": m["thinking"]})
+            if as_text(m.get("content")):
+                content.append({"type": "text", "text": as_text(m.get("content"))})
+            calls = as_list(m.get("tool_calls"))
             for i, c in enumerate(calls):
                 # Our transcripts store {id, name, args}; OpenAI-style ones store {id, function: {name, arguments}}.
                 fn = c.get("function") or {"name": c.get("name"), "arguments": c.get("args")}
-                call_id = c.get("id") or f"call_{len(lines)}_{i}"
-                msg["toolCalls"].append(
-                    {
-                        "id": call_id,
-                        "function": {
-                            "name": fn.get("name") or "",
-                            "arguments": as_json_string(fn.get("arguments")),
-                        },
-                    }
-                )
-                open_calls.append(call_id)
+                call_id = c.get("id") or f"call_{n}_{i}"
+                names[call_id] = fn.get("name") or ""
+                content.append({"type": "toolCall", "id": call_id, "name": names[call_id],
+                                "arguments": as_args(fn.get("arguments"))})
+            msg = {"role": "assistant", "content": content, "api": "anthropic-messages", "provider": "openrouter",
+                   "model": model, "usage": NO_USAGE, "stopReason": "toolUse" if calls else "stop", "timestamp": ms}
+        elif role == "tool":
+            call_id = m.get("tool_call_id") or ""
+            msg = {"role": "toolResult", "toolCallId": call_id, "toolName": names.get(call_id, ""),
+                   "content": [{"type": "text", "text": as_text(m.get("content"))}], "isError": False, "timestamp": ms}
+        else:  # user, and the rare system message, shown as user text
+            msg = {"role": "user", "content": as_text(m.get("content")), "timestamp": ms}
 
-        if role == "tool":
-            call_id = m.get("tool_call_id")
-            if call_id is None and open_calls:
-                call_id = open_calls[0]  # no id: link to the oldest open call
-            if call_id in open_calls:
-                open_calls.remove(call_id)
-            if call_id:
-                msg["toolCallId"] = call_id
-
-        lines.append({"type": "message", "message": msg})
+        lines.append({"type": "message", "id": f"{n + 1:08x}", "parentId": f"{n:08x}" if n else None,
+                      "timestamp": when.isoformat().replace("+00:00", "Z"), "message": msg})
     return lines
 
 
@@ -200,28 +205,36 @@ def session_name(row, kind):
     return " · ".join(parts)
 
 
+def make_header(sid, name, model, kind):
+    """Pi session header; `harness`, `name`, `model` and `kind` are extra fields for the Hub."""
+    return {"type": "session", "version": 3, "id": sid, "timestamp": START.isoformat().replace("+00:00", "Z"),
+            "cwd": "<repo>", "harness": HARNESS, "name": name, "model": model, "kind": kind}
+
+
 def write_session(path, header, messages):
     with open(path, "w", encoding="utf-8") as f:
         f.write(json.dumps(header, ensure_ascii=False) + "\n")
-        for line in convert(messages):
+        for line in convert(messages, header["model"]):
             f.write(json.dumps(line, ensure_ascii=False) + "\n")
 
 
 def check(path):
-    """Read a file back and make sure it obeys the STS rules."""
+    """Read a file back and make sure it follows Pi's session format."""
     rows = [json.loads(x) for x in path.read_text(encoding="utf-8").splitlines()]
     head, body = rows[0], rows[1:]
-    assert head["type"] == "session" and head["harness"] and head["id"], f"{path}: bad header"
-    call_ids = set()
+    assert head["type"] == "session" and head["version"] == 3 and head["id"], f"{path}: bad header"
+    call_ids, prev = set(), None
     for r in body:
-        assert r["type"] == "message", f"{path}: a line is not a message"
+        assert r["type"] == "message" and r["id"] and r["parentId"] == prev, f"{path}: broken entry chain"
+        prev = r["id"]
         msg = r["message"]
-        assert "role" in msg and "content" in msg, f"{path}: no role or content"
-        for c in msg.get("toolCalls", []):
-            assert isinstance(c["function"]["arguments"], str), f"{path}: arguments not a string"
-            assert c["function"]["name"], f"{path}: tool call without a name"
-            call_ids.add(c["id"])
-        if "toolCallId" in msg:
+        assert msg["role"] in ("user", "assistant", "toolResult"), f"{path}: bad role"
+        if msg["role"] == "assistant":
+            for c in msg["content"]:
+                if c["type"] == "toolCall":
+                    assert c["name"] and isinstance(c["arguments"], dict), f"{path}: bad tool call"
+                    call_ids.add(c["id"])
+        if msg["role"] == "toolResult":
             assert msg["toolCallId"] in call_ids, f"{path}: tool result has no matching call"
     return len(body)
 
@@ -263,21 +276,15 @@ def main():
         for i, row in enumerate(tables[config]):
             sid = session_id(row, i, kind)
             run = str(row.get("run_id") or "")
-            header = {
-                "type": "session",
-                "harness": HARNESS,
-                "id": sid,
-                "name": session_name(row, kind),
-                "model": "claude-haiku-5.5" if "haiku" in run else "claude-sonnet-5.5",
-                "kind": kind,
-            }
+            model = "claude-haiku-5.5" if "haiku" in run else "claude-sonnet-5.5"
+            header = make_header(sid, session_name(row, kind), model, kind)
             write_session(folder / f"{sid}.jsonl", header, as_list(row[columns[config]]))
 
     # 6e. Check every file
     files = sorted(OUT.rglob("*.jsonl"))
     total = sum(check(p) for p in files)
-    thinking = sum('"reasoningContent"' in p.read_text(encoding="utf-8") for p in files)
-    print(f"OK: {len(files)} files, {total} messages, all pass the STS checks; {thinking} files carry thinking.")
+    thinking = sum('"type": "thinking"' in p.read_text(encoding="utf-8") for p in files)
+    print(f"OK: {len(files)} files, {total} messages, all pass the Pi format checks; {thinking} files carry thinking.")
 
     if not args.push:
         print("Dry run. Open one file in traces/ and look at it. Then run again with --push.")
@@ -290,7 +297,7 @@ def main():
         repo_id=REPO,
         repo_type="dataset",
         delete_patterns=["*"],
-        commit_message="Rebuild trace_viewer files (Session Trace format, with thinking)",
+        commit_message="Rebuild trace_viewer files in Pi session format, with thinking",
     )
 
     # 6g. Add the config, the tag and a table row to the dataset card
