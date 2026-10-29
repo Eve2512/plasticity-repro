@@ -15,5 +15,7 @@ reasoning. "Same call" = the replayed turn makes exactly the recorded Bash calls
 | `haiku_r20` | medium | 306 | 8 % | 98 % | 675 |
 | `hex_haiku_reflect_high` | high | 154 | 5 % | 100 % | 2522 |
 | `hex_haiku_reflect_high_rep2` | high | 136 | 7 % | 96 % | 1768 |
+| `go_sonnet_reflect_high` | high | 152 | 7 % | 89 % | 1013 |
+| `go_sonnet_reflect_high_rep2` | high | 99 | 13 % | 72 % | 663 |
 | `go_haiku_reflect_high` | high | 158 | 5 % | 99 % | 2141 |
 | `go_haiku_reflect_high_rep2` | high | 138 | 7 % | 99 % | 2114 |

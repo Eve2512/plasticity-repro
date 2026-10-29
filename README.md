@@ -84,10 +84,16 @@ no-feedback lineages still work as a control on identical openings. With nothing
 still fell from 72 % to 56 % held-out ID. A single lineage's curve can move that much without any learning.
 
 Thinking: the original runs kept no thinking. [Report 16](reports/16_thinking_replay.md) replays every
-saved reflection turn of 11 runs with thinking summaries on ($4.58). Haiku returned a summary on
-96–100 % of turns, Sonnet on 0–68 %. The replayed turn matched the recorded calls in only 5–40 % of
+saved reflection turn of all 13 runs with thinking summaries on ($9.40). Haiku returned a summary on
+96–100 % of turns, Sonnet on 0–89 %. The replayed turn matched the recorded calls in only 5–40 % of
 turns, so these summaries describe the model's reasoning on the same input, not the original run's.
 Runs from test 5 on record thinking summaries as they go.
+
+[Report 19](reports/19_thinking.md) reads those summaries for how learning happened. The lineages
+that learned tested new tool versions in games against the current one before installing them.
+Haiku reflected like an auditor (failure-mode bookkeeping, never a match between versions). One Go
+Sonnet lineage tested only against its own engines and kept installing unproven rewrites. With its
+final tools the actor thinks on 4–6 % of its turns; without them, on 66–70 %.
 
 ## Layout
 

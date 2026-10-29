@@ -4,7 +4,7 @@ Independent, scaled-down reproduction of *Agent Plasticity: Measuring Self-Impro
 Through Experience* (Singh et al., arXiv:2610.08902, October 2026). The authors released
 no code; everything here was rebuilt from the paper's equations (Section 2) and appendix
 (Appendix B settings, Appendix I prompts). Data: the Hugging Face dataset
-`Eve39570/agent-plasticity-hex` (3,666 game transcripts on both games, 108 reflection logs, 1,126 replayed reflection turns, 144 ablation games).
+`Eve39570/agent-plasticity-hex` (3,666 game transcripts on both games, 108 reflection logs, 1,377 replayed reflection turns, 144 ablation games).
 
 ## Summary
 
@@ -33,6 +33,11 @@ no code; everything here was rebuilt from the paper's equations (Section 2) and 
   92 % to 50–54 % (test 6). Reflection without game records built no tools at all; on the
   same held-out openings, the feedback lineages won 38 games the no-feedback control lost
   and lost 5 it won from checkpoint 3 on (p = 2.5e-07, test 5).
+- **Learning showed up as testing, in the thinking.** Thinking summaries (replayed for old
+  runs) show the lineages that learned playing new tool versions against the current one
+  before installing them; Haiku never did, and one Go Sonnet lineage tested only against its
+  own engines and kept installing unproven rewrites. With its final tools the actor thinks
+  on 4–6 % of its turns, without them on 66–70 %.
 - **A single lineage's curve can move a lot without learning.** The no-feedback control
   never changed and played the same openings against the same deterministic opponents at
   every checkpoint, yet its held-out ID fell from 72 % to 56 % (p = 0.024 treating games as
@@ -246,17 +251,39 @@ are treated as independent, which repeated openings make them not). The drop is 
 over six openings. The only varying part is the actor's sampling, plus any drift in the
 served model during the run.
 
-### 3.8 Thinking
+### 3.8 Thinking: how the learning happened
 
-The runs up to plan A kept no thinking (section 4). To get a view of the reasoning behind
-past reflections, every saved reflection turn of 11 runs was sent again with the same
-context and thinking summaries on (report 16, $4.58; the two Go Sonnet runs were left out
-for budget). Haiku returned a summary on 96–100 % of turns, often 2,000+ characters; Sonnet
-on 52–68 % at reflection effort high and 0–43 % at medium, where adaptive thinking often
-skips simple turns. The replayed turn made the same tool calls as the recorded one in only
-5–40 % of turns, so a replayed summary is the model's reasoning on the same input, not a
-recovery of what the original run thought. The test 5 lineages and all later runs record
-summaries as they go.
+The runs up to plan A kept no thinking (section 4). To see the reasoning behind past
+reflections, every saved reflection turn of all 13 runs was sent again with the same context
+and thinking summaries on (report 16, $9.40). Haiku returned a summary on 96–100 % of turns,
+often 2,000+ characters; Sonnet on 52–89 % at reflection effort high and 0–43 % at medium,
+where adaptive thinking often skips simple turns. The replayed turn made the same tool calls
+as the recorded one in only 5–40 % of turns, so a replayed summary is the model's reasoning
+on the same input, not a recovery of what the original run thought. The test 5 and 6 runs
+recorded actor and reflection thinking live.
+
+What the summaries show (report 19; keyword codes checked by reading samples):
+
+| Group | Learned | Reflections testing a candidate tool in games against the current one | Summaries about bookkeeping |
+|---|---|---|---|
+| Hex Sonnet, effort medium | no | 0 % | 36 % (few summaries) |
+| Hex Sonnet, effort high | yes | 33 % | 23 % |
+| Haiku, Hex and Go, both efforts | no | 0 % | 58–61 % |
+| Go Sonnet, run 1 | late, partly | 100 % | 18 % |
+| Go Sonnet, rep2 | yes | 57 % | 24 % |
+
+- The lineages that learned tested new tools in games before installing them; for example,
+  a RAVE variant was installed only after beating the current MCTS 25 of 32 times.
+- Haiku reflects like an auditor: long summaries about failure-mode IDs, tracking files and
+  call bugs, and no games between tool versions.
+- Testing alone was not enough. Go Sonnet run 1 tested only against its own previous engine,
+  noted that this was not the real benchmark, often saw the new engine lose, and still
+  installed a rewrite at every checkpoint; its own notes say none was shown to win more.
+  Rep2 fixed the bug that made its first tool unusable, switched to MCTS, checked it on
+  positions from lost games, and stopped changing code once it won 8 of 8.
+- With its final tools the actor wrote a thinking summary on 4–6 % of its turns; without
+  them, on 66–70 %. The learned part sits in the code, and the model stops reasoning about
+  the game once the code exists.
 
 ### 3.9 Problems found in our own pipeline
 
@@ -347,5 +374,5 @@ uv run python scripts/compare_feedback.py                        # report 18
 uv run python scripts/replay_thinking.py --dry                   # report 16: plan, then --yes
 ```
 
-Total API spend for the whole project: $102.23 (all lineages, smoke runs, probes, tests 5
-and 6 and the thinking replay). Reports 01–18 in `reports/` hold every number above.
+Total API spend for the whole project: $107.05 (all lineages, smoke runs, probes, tests 5
+and 6 and the thinking replay). Reports 01–19 in `reports/` hold every number above.
