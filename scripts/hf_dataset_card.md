@@ -28,6 +28,10 @@ configs:
   data_files: data/calls.jsonl
 - config_name: openings
   data_files: data/openings.jsonl
+- config_name: thinking_replay
+  data_files: data/thinking_replay.jsonl
+- config_name: ablation_games
+  data_files: data/ablation_games.jsonl
 ---
 
 # Agent Plasticity on 6x6 Hex and 5x5 Go: Claude Sonnet 5.5 and Haiku 5.5 traces
@@ -48,13 +52,15 @@ Every table has a `game` column (`hex` or `go`).
 
 | Config | Rows (Hex + Go) | One row is |
 |---|---|---|
-| `runs` | 9 + 4 | a lineage: settings, cost, plasticity fit |
-| `checkpoints` | 72 + 30 | a checkpoint: wins per split, learning cost, reflection outcome |
-| `games` | 2,290 + 992 | a game: opening, moves, per-move diagnostics, token use, **full transcript** |
-| `reflections` | 67 + 27 | a reflection attempt: full transcript, validator result |
-| `inventories` | 320 + 155 | a file the agent saved, at a checkpoint (code, notes, tracking JSON) |
-| `calls` | 29,896 + 13,525 | a model call: tokens (input, cached, cache write, output) and charged cost |
+| `runs` | 11 + 4 | a lineage: settings, cost, plasticity fit |
+| `checkpoints` | 88 + 30 | a checkpoint: wins per split, learning cost, reflection outcome |
+| `games` | 2,674 + 992 | a game: opening, moves, per-move diagnostics, token use, **full transcript** |
+| `reflections` | 81 + 27 | a reflection attempt: full transcript, validator result |
+| `inventories` | 352 + 155 | a file the agent saved, at a checkpoint (code, notes, tracking JSON) |
+| `calls` | 32,651 + 13,525 | a model call: tokens (input, cached, cache write, output) and charged cost |
 | `openings` | 234 + 112 | a starting position from the legacy, contested or pooled bank |
+| `thinking_replay` | 830 + 296 | a saved reflection turn sent again with thinking summaries on: recorded and replayed calls, summary |
+| `ablation_games` | 144 + 0 | a held-out ID game from a final checkpoint with the inventory kept, removed or forced (`arm`) |
 
 Runs (via OpenRouter; games always at effort `medium`):
 
@@ -71,6 +77,7 @@ Runs (via OpenRouter; games always at effort `medium`):
 | `go_sonnet_reflect_high` | Go | Sonnet 5.5 | high | 0–5 (6 played, stopped by its cost cap) | 8 / 20 / 4 | pooled, training draw changes per checkpoint |
 | `go_sonnet_reflect_high_rep2` | Go | Sonnet 5.5 | high | 0–7 | 8 / 20 / 4 | as above |
 | `go_haiku_reflect_high`, `..._rep2` | Go | Haiku 5.5 | high | 0–7 | 8 / 20 / 4 | as above |
+| `sonnet_nofeedback_high`, `..._rep2` | Hex | Sonnet 5.5 | high, **no game records** | 0–7 | 8 / 12 / 4 | pooled |
 
 ## Main result
 
@@ -88,6 +95,12 @@ Sonnet rises on both games (Hex 69 % → 83 %, Go 57 % → 71 %) and Haiku does 
 39 %, Go 55 % → 48 %). The two Go Sonnet lineages diverge: one reaches 90 %, the other stays
 near 30–35 % until its last complete checkpoint and then loses 9 of 32 games to tool
 timeouts after calling its own tool with a much larger search budget.
+
+Two limitation tests on Hex Sonnet at reflection effort `high` (reports 17 and 18).
+Removing the final inventory drops held-out ID from 92 % to 50–54 % (`ablation_games`).
+Reflection without game records (`runs.reflection_feedback = "none"`) built no tools at all;
+on the same held-out openings the feedback lineages won 38 games the no-feedback lineages
+lost, and lost 5 they won, from checkpoint 3 on (sign test p = 2.5e-07).
 
 ## Fields worth knowing
 
@@ -108,6 +121,15 @@ timeouts after calling its own tool with a much larger search budget.
   against levels 5, 7 and 9. Not comparable across games.
 - `inventories`: one row per file per checkpoint, so artifact changes can be diffed.
 - `calls.cost_usd`: OpenRouter's reported charge for that call.
+- `runs.reflection_feedback`: `full`, or `none` when reflection got only a note in place of
+  the game records (limitation test 5).
+- `games.messages[].thinking`, `reflections.messages[].thinking`: the model's thinking
+  summary for that turn. Only in the `sonnet_nofeedback_high` lineages; earlier runs did
+  not save it.
+- `thinking_replay`: `recorded` and `replayed` are the original and the new turn's text and
+  tool calls; `same_call` is true when the replayed turn made exactly the recorded calls;
+  `thinking` is the new turn's summary. A new sample on the same input, not the original
+  reasoning. The two Go Sonnet runs are not replayed.
 
 ## How it differs from the paper
 
@@ -126,9 +148,11 @@ timeouts after calling its own tool with a much larger search budget.
 
 ## Limits
 
-- **No thinking.** The models thought on every call, but the harness did not save the
-  thinking blocks (Sonnet 5.5 through OpenRouter returned short summaries; Haiku 5.5 returned
-  them empty), so transcripts contain actions and visible text only.
+- **Thinking only in the newest runs.** The models thought on every call, but until the
+  no-feedback lineages the harness did not save the thinking blocks (Sonnet 5.5 through
+  OpenRouter returned short summaries; Haiku 5.5 returned them empty unless asked). Earlier
+  transcripts contain actions and visible text only; `thinking_replay` gives summaries on
+  the same reflection inputs. Thinking is always a summary, never the raw chain of thought.
 - **Small samples.** 12 (Hex) or 20 (Go) held-out ID games per checkpoint; differences under about 20 points
   between halves of the run are not detectable.
 - **Two lineages** per condition, except `haiku_r20` (one).
