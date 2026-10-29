@@ -59,7 +59,7 @@ Every table has a `game` column (`hex` or `go`).
 | `inventories` | 352 + 155 | a file the agent saved, at a checkpoint (code, notes, tracking JSON) |
 | `calls` | 32,651 + 13,525 | a model call: tokens (input, cached, cache write, output) and charged cost |
 | `openings` | 234 + 112 | a starting position from the legacy, contested or pooled bank |
-| `thinking_replay` | 830 + 296 | a saved reflection turn sent again with thinking summaries on: recorded and replayed calls, summary |
+| `thinking_replay` | 830 + 547 | a saved reflection turn sent again with thinking summaries on: recorded and replayed calls, summary |
 | `ablation_games` | 144 + 0 | a held-out ID game from a final checkpoint with the inventory kept, removed or forced (`arm`) |
 
 Runs (via OpenRouter; games always at effort `medium`):
@@ -129,7 +129,7 @@ lost, and lost 5 they won, from checkpoint 3 on (sign test p = 2.5e-07).
 - `thinking_replay`: `recorded` and `replayed` are the original and the new turn's text and
   tool calls; `same_call` is true when the replayed turn made exactly the recorded calls;
   `thinking` is the new turn's summary. A new sample on the same input, not the original
-  reasoning. The two Go Sonnet runs are not replayed.
+  reasoning. Every model run with reflection logs is replayed.
 
 ## How it differs from the paper
 
