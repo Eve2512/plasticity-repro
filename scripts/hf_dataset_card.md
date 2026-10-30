@@ -69,7 +69,7 @@ Every table has a `game` column (`hex` or `go`).
 | `openings` | 234 + 112 | a starting position from the legacy, contested or pooled bank |
 | `thinking_replay` | 830 + 547 | a saved reflection turn sent again with thinking summaries on: recorded and replayed calls, summary |
 | `ablation_games` | 144 + 0 | a held-out ID game from a final checkpoint with the inventory kept, removed or forced (`arm`) |
-| `trace_viewer` | 3,918 | a game, reflection or ablation-game transcript in Pi's session format, with thinking summaries (live, or replayed and labelled), for the trace viewer |
+| `trace_viewer` | 636 | a reflection, ablation game or game with thinking, as a transcript in Pi's session format with thinking summaries (live, or replayed and labelled), for the trace viewer |
 
 In `trace_viewer` the `harness` column says `pi`. The traces were not run in Pi. The harness
 here is this project's own; its transcripts are written in Pi's session format because the
