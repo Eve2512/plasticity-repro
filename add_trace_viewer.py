@@ -2,7 +2,9 @@
 Add a `trace_viewer` config to Eve39570/agent-plasticity-hex-go.
 
 Each transcript is written in Pi's session format (version 3), which the Hub's trace
-viewer reads natively. The Hub's own Session Trace format was tried first; the viewer
+viewer reads natively. Games are kept only if they carry thinking (the other game
+transcripts are in the `games` config): with all 3,918 files the Hub's conversion timed
+out twice. The Hub's own Session Trace format was tried first; the viewer
 parsed it as Pi and dropped every assistant turn. Timestamps are placeholders (one
 second per message): the harness did not record times.
 
@@ -39,8 +41,8 @@ CONFIG = {
 }
 TRANSCRIPT_COLUMNS = ["messages", "transcript", "conversation"]
 TABLE_ROW = (
-    "| `trace_viewer` | {n} | a game, reflection or ablation-game transcript in Pi's session format, "
-    "with thinking summaries (live, or replayed and labelled), for the trace viewer |"
+    "| `trace_viewer` | {n} | a reflection, ablation game or game with thinking, as a transcript in "
+    "Pi's session format with thinking summaries (live, or replayed and labelled), for the trace viewer |"
 )
 REPLAYED = ("[Replayed thinking summary: the same input was sent again with thinking on; "
             "a new sample, not what this run thought.]\n\n")
@@ -269,11 +271,13 @@ def main():
     if OUT.exists():
         shutil.rmtree(OUT)
 
-    # 6d. Write one file per game, reflection and ablation game
+    # 6d. Write one file per reflection, ablation game and game with thinking
     for kind, config, folder_name in KINDS:
         folder = OUT / folder_name
         folder.mkdir(parents=True)
         for i, row in enumerate(tables[config]):
+            if kind == "game" and not any(m.get("thinking") for m in as_list(row[columns[config]])):
+                continue
             sid = session_id(row, i, kind)
             run = str(row.get("run_id") or "")
             model = "claude-haiku-5.5" if "haiku" in run else "claude-sonnet-5.5"
@@ -297,7 +301,7 @@ def main():
         repo_id=REPO,
         repo_type="dataset",
         delete_patterns=["*"],
-        commit_message="Rebuild trace_viewer files in Pi session format, with thinking",
+        commit_message="Keep only traces with thinking, reflections and ablation games in trace_viewer",
     )
 
     # 6g. Add the config, the tag and a table row to the dataset card
