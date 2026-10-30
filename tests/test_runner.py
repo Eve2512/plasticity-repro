@@ -1,5 +1,6 @@
 import itertools
 import json
+from dataclasses import replace
 
 from harness.episode import EpisodeConfig
 from harness.model import ModelTurn, ScriptedModel, ToolCall
@@ -77,3 +78,27 @@ def test_no_feedback_reflection_sees_no_game_records(tmp_path):
     assert results["checkpoints"][1]["cost_cumulative"] > 0
     workspace = tmp_path / "run" / "reflect" / "checkpoint_000" / "attempt_1" / "workspace" / "feedback"
     assert not (workspace / "games").exists() and (workspace / "protocol" / "SCHEMA.md").exists()
+
+
+def test_resume_extends_a_finished_lineage(tmp_path):
+    cfg = RunConfig(
+        rounds=1,
+        games={"train": 2, "id": 2, "ood": 1},
+        train_id_levels=(200,),
+        ood_levels=(400,),
+        episode=EpisodeConfig(max_calls=4, tool_timeout=30),
+        reflection=ReflectionConfig(max_calls=3, max_attempts=1),
+    )
+    run_dir = tmp_path / "run"
+    first = run_lineage(ScriptedModel(naive), run_dir, cfg)
+    assert [c["t"] for c in first["checkpoints"]] == [0, 1]
+    assert "reflection" not in first["checkpoints"][-1]  # the final checkpoint has no reflection
+
+    results = run_lineage(ScriptedModel(naive), run_dir, replace(cfg, rounds=3), resume=True)
+    assert [c["t"] for c in results["checkpoints"]] == [0, 1, 2, 3]
+    assert results["checkpoints"][1]["reflection"]["attempts"]  # reflected on the saved games
+    assert (run_dir / "feedback" / "checkpoint_001" / "summary.json").exists()
+    assert (run_dir / "inventories" / "checkpoint_003").exists()
+    assert results["config"]["rounds"] == 3
+    costs = [c["cost_cumulative"] for c in results["checkpoints"]]
+    assert costs == sorted(costs) and costs[2] > costs[1]  # the extra reflection is a learning cost
