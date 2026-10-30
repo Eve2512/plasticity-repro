@@ -71,6 +71,10 @@ Every table has a `game` column (`hex` or `go`).
 | `ablation_games` | 144 + 0 | a held-out ID game from a final checkpoint with the inventory kept, removed or forced (`arm`) |
 | `trace_viewer` | 3,918 | a game, reflection or ablation-game transcript in Pi's session format, with thinking summaries (live, or replayed and labelled), for the trace viewer |
 
+In `trace_viewer` the `harness` column says `pi`. The traces were not run in Pi. The harness
+here is this project's own; its transcripts are written in Pi's session format because the
+Hub's trace viewer reads that format, so the Hub names the harness after the format.
+
 Runs (via OpenRouter; games always at effort `medium`):
 
 | `run_id` | Game | Model | Reflection effort | Checkpoints | Games per checkpoint (train / ID / OOD) | Openings |
