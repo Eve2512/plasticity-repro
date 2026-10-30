@@ -66,6 +66,34 @@ summaries and saves them in each assistant turn of the transcript as `thinking`.
 of the actor's transcript that reflection reads has them removed, so recording them does
 not change what reflection learns from.
 
+## Extending lineages to checkpoint 10 (2026-10-30)
+
+Lineages first run to checkpoint 7 (Go Sonnet run 1 stopped at its cap in checkpoint 6)
+were resumed with `--rounds 10 --resume`. Their final checkpoint had been played without a
+reflection, since nothing came after it. On resume the reflector now reflects on that
+checkpoint's saved training games (`_extend` in harness/runner.py), and the next checkpoint
+starts from the new inventory, as in an unbroken run. Differences from an unbroken run:
+
+- The extension ran two to five days after the original checkpoints, so model drift
+  (report 18) can enter at checkpoint 8.
+- The extended checkpoints record thinking summaries (`--thinking-display summarized`);
+  most original checkpoints sent no thinking field. Reflection never sees the summaries.
+- `--cap` is the lineage's total: the amount billed so far plus the approved extension.
+
+## Non-Claude models (2026-10-30)
+
+Muse Spark 1.3 (`meta/muse-spark-1.3`) and GLM 5.3 (`z-ai/glm-5.3`) are not served on
+OpenRouter's Anthropic-style Messages endpoint, so harness/chat_model.py talks to its
+chat-completions endpoint. Tools, prompts, budgets and the sandbox are unchanged. Differences:
+
+- Effort goes in `reasoning.effort`; "xhigh" and "max" become "high".
+- Each assistant turn's `reasoning_details` is sent back with the history, as OpenRouter
+  asks; Claude's thinking blocks were sent back the same way.
+- Caching is the provider's own; there is no cache-control field and no cache-write price.
+- Recorded `thinking` is the provider's reasoning text. For these models it may be the full
+  reasoning, not a summary, so its length is not comparable with Claude's summaries.
+- Malformed tool-call arguments are run as an empty call; Claude's API never returns them.
+
 ## Not specified in the paper
 
 - Exact Hex opening banks and the alpha–beta evaluation function.

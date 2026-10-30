@@ -15,6 +15,7 @@ from dataclasses import dataclass, field
 
 import anthropic
 
+from harness.chat_model import CHAT_BILLING, ChatModel
 from harness.ledger import BudgetExceeded
 from harness.model import ModelTurn, ToolCall, ToolSpec, Usage
 from plasticity.pricing import PriceTable
@@ -33,6 +34,7 @@ BILLING = {
     "anthropic/claude-opus-5.5": PriceTable(4.0, 20.0, cached_input_per_mtok=0.20, cache_write_per_mtok=5.0),
     "anthropic/claude-sonnet-5.5": PriceTable(2.0, 10.0, cached_input_per_mtok=0.10, cache_write_per_mtok=2.5),
     "anthropic/claude-haiku-5.5": PriceTable(0.10, 0.50, cached_input_per_mtok=0.01, cache_write_per_mtok=0.125),
+    **CHAT_BILLING,  # non-Claude models, served by harness/chat_model.py
 }
 
 OPENROUTER_BASE_URL = "https://openrouter.ai/api"  # the SDK appends /v1/messages
@@ -51,7 +53,9 @@ class ModelSpec:
     provider: str = "openrouter"  # or "anthropic"
     thinking_display: str | None = None  # "summarized" to record thinking summaries
 
-    def __call__(self) -> "AnthropicModel":
+    def __call__(self) -> "AnthropicModel | ChatModel":
+        if self.model in CHAT_BILLING:
+            return ChatModel(self.model, self.key, effort=self.effort, thinking_display=self.thinking_display)
         if self.provider == "openrouter":
             return AnthropicModel(self.model, effort=self.effort, base_url=OPENROUTER_BASE_URL, auth_token=self.key,
                                   thinking_display=self.thinking_display)
@@ -106,8 +110,8 @@ class AnthropicModel:
     ):
         """`base_url` + `auth_token` (sent as a Bearer token) point the SDK at another
         Messages-API endpoint such as OpenRouter's."""
-        if model not in BILLING:
-            raise ValueError(f"no price table for {model}; add one to BILLING")
+        if model not in BILLING or model in CHAT_BILLING:
+            raise ValueError(f"no Claude price table for {model}; add one to BILLING")
         self.name = model
         self.effort = effort
         self.max_tokens = max_tokens
