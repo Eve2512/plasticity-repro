@@ -1,4 +1,4 @@
-"""Run one Hex or Go lineage with a Claude model and write a report.
+"""Run one Hex or Go lineage with a Claude model (or, via harness/chat_model.py, Muse Spark or GLM) and write a report.
 
     uv run python scripts/run_hex.py --model anthropic/claude-sonnet-5.5 --rounds 7 \
         --train 8 --id 12 --ood 4 --cap 17 --name lineage_a          # plan only
@@ -28,7 +28,7 @@ from harness.scripted import first_legal_factory
 ROOT = Path(__file__).resolve().parent.parent
 HARD_CAP = 45.00  # the user's approved budget for this phase (2026-10-25)
 PROVIDERS = {
-    "openrouter": ("OPENROUTER_API_KEY", lambda m: m.startswith("anthropic/")),
+    "openrouter": ("OPENROUTER_API_KEY", lambda m: "/" in m),
     "anthropic": ("ANTHROPIC_API_KEY", lambda m: m.startswith("claude-")),
 }
 def artifact_use(run_dir: Path, t: int) -> tuple[int, int, int, int]:

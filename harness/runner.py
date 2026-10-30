@@ -177,9 +177,11 @@ def run_lineage(model: Model, run_dir: Path, cfg: RunConfig = RunConfig(), model
     if start > cfg.rounds:
         print("run already complete")
         return _write(run_dir, model, cfg, checkpoints, ledger)
-    inventory = (run_dir / "inventories" / f"checkpoint_{start:03d}") if start else \
-        empty_inventory(run_dir / "inventories" / "checkpoint_000")
     try:
+        if start and "reflection" not in checkpoints[-1]:
+            _extend(model, run_dir, cfg, ledger, checkpoints)
+        inventory = (run_dir / "inventories" / f"checkpoint_{start:03d}") if start else \
+            empty_inventory(run_dir / "inventories" / "checkpoint_000")
         _checkpoints(model, model_factory, run_dir, cfg, ledger, inventory, checkpoints, start)
     except BudgetExceeded as exc:
         print(f"stopped: {exc}")
@@ -192,6 +194,8 @@ def _prepare_resume(run_dir: Path, cfg: RunConfig) -> tuple[list[dict], float]:
     prev = json.loads((run_dir / "results.json").read_text())
     for key in ("game", "rounds", "games", "openings", "train_id_levels", "ood_levels", "reflection_feedback"):
         old, new = prev["config"].get(key, RESUME_DEFAULTS.get(key)), asdict(cfg)[key]
+        if key == "rounds" and new >= old:  # extending a lineage to more checkpoints
+            continue
         if json.loads(json.dumps(old)) != json.loads(json.dumps(new)):
             raise ValueError(f"cannot resume: {key} was {old}, now {new}")
     checkpoints = prev["checkpoints"]
@@ -207,7 +211,8 @@ def _prepare_resume(run_dir: Path, cfg: RunConfig) -> tuple[list[dict], float]:
                  run_dir / "reflect" / f"checkpoint_{k:03d}", run_dir / "inventories" / f"checkpoint_{k + 1:03d}"):
         if path.exists():
             shutil.rmtree(path)
-    if k and not (run_dir / "inventories" / f"checkpoint_{k:03d}").exists():
+    extending = k and "reflection" not in checkpoints[-1]  # _extend writes inventory k
+    if k and not extending and not (run_dir / "inventories" / f"checkpoint_{k:03d}").exists():
         raise ValueError(f"cannot resume: inventory for checkpoint {k} is missing")
     discarded = Ledger(cfg.prices, billing=cfg.billing)
     prior = sum(discarded.entry_cost(e) for e in Ledger.read(run_dir / "ledger_discarded.jsonl"))
@@ -228,19 +233,44 @@ def _checkpoints(model, model_factory, run_dir, cfg, ledger, inventory, checkpoi
             row[split] = {"points": sum(r.score for r, _, _ in played[split]), "games": len(played[split]),
                           "unfinished": sum(r.end_reason != "finished" for r, _, _ in played[split])}
         if t < cfg.rounds:
-            feedback = run_dir / "feedback" / f"checkpoint_{t:03d}"
-            if cfg.reflection_feedback == "none":  # training games still played and paid for
-                feedback.mkdir(parents=True, exist_ok=True)
-                (feedback / "README.md").write_text(NO_FEEDBACK_NOTE)
-            else:
-                write_feedback(feedback, played["train"], GAMES[cfg.game])
-            outcome = reflect(model, inventory, feedback, run_dir / "reflect" / f"checkpoint_{t:03d}",
-                              hidden=[run_dir], ledger=ledger, checkpoint=t, cfg=cfg.reflection)
-            row["reflection"] = {"accepted": outcome.accepted, "attempts": outcome.attempts}
-            inventory = commit(outcome.inventory, run_dir / "inventories" / f"checkpoint_{t + 1:03d}")
+            row["reflection"], inventory = _reflect(model, run_dir, cfg, ledger, inventory, t, played["train"])
             cumulative += ledger.round_cost(t, "train") + ledger.round_cost(t, "reflect")
         checkpoints.append(row)
         _write(run_dir, model, cfg, checkpoints, ledger)
+
+
+def _reflect(model, run_dir, cfg, ledger, inventory, t, train) -> tuple[dict, Path]:
+    """Reflection after checkpoint t on its training games; returns (outcome row, inventory t + 1)."""
+    feedback = run_dir / "feedback" / f"checkpoint_{t:03d}"
+    if cfg.reflection_feedback == "none":  # training games still played and paid for
+        feedback.mkdir(parents=True, exist_ok=True)
+        (feedback / "README.md").write_text(NO_FEEDBACK_NOTE)
+    else:
+        write_feedback(feedback, train, GAMES[cfg.game])
+    outcome = reflect(model, inventory, feedback, run_dir / "reflect" / f"checkpoint_{t:03d}",
+                      hidden=[run_dir], ledger=ledger, checkpoint=t, cfg=cfg.reflection)
+    inventory = commit(outcome.inventory, run_dir / "inventories" / f"checkpoint_{t + 1:03d}")
+    return {"accepted": outcome.accepted, "attempts": outcome.attempts}, inventory
+
+
+def _extend(model, run_dir, cfg, ledger, checkpoints) -> None:
+    """A lineage extended to more rounds: its old final checkpoint was played without a
+    reflection. Reflect on that checkpoint's saved training games, so the next one starts
+    from a new inventory as usual."""
+    t = checkpoints[-1]["t"]
+    print(f"checkpoint {t}: reflection on the saved training games (extending the lineage)", flush=True)
+    for path in (run_dir / "feedback" / f"checkpoint_{t:03d}", run_dir / "reflect" / f"checkpoint_{t:03d}",
+                 run_dir / "inventories" / f"checkpoint_{t + 1:03d}"):
+        if path.exists():  # left by an extension that stopped part-way
+            shutil.rmtree(path)
+    base = run_dir / "games" / f"checkpoint_{t:03d}" / "train"
+    train = []
+    for path in sorted(base.glob("*.json"), key=lambda p: int(p.stem.split("_g")[1].split("_")[0])):
+        result = GameResult(**json.loads(path.read_text())["result"])
+        train.append((result, path, base / "sessions" / path.stem))
+    row, _ = _reflect(model, run_dir, cfg, ledger, run_dir / "inventories" / f"checkpoint_{t:03d}", t, train)
+    checkpoints[-1]["reflection"] = row
+    _write(run_dir, model, cfg, checkpoints, ledger)
 
 
 def plasticity_summary(checkpoints: list[dict], split: str = "id") -> dict:
