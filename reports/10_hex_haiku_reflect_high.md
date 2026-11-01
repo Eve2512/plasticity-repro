@@ -1,7 +1,7 @@
 # 10 Lineage `hex_haiku_reflect_high`: anthropic/claude-haiku-5.5 on 6x6 Hex
 
-Checkpoints 0–7; games per checkpoint {'train': 8, 'id': 12, 'ood': 4}; openings: pooled.
-Billed $1.49 (cap $2.00); learning cost priced the paper's way $2.23.
+Checkpoints 0–10; games per checkpoint {'train': 8, 'id': 12, 'ood': 4}; openings: pooled.
+Billed $2.11 (cap $2.50); learning cost priced the paper's way $3.39.
 
 | Checkpoint | Learning cost so far | Train | Held-out ID | Held-out OOD | Unfinished | Inventory files | Games reading / loading / calling saved artifacts | Reflection |
 |---|---|---|---|---|---|---|---|---|
@@ -12,11 +12,14 @@ Billed $1.49 (cap $2.00); learning cost priced the paper's way $2.23.
 | 4 | $0.91 | 12 % | 42 % | 0 % | 0 | 4 | 24 / 24 / 24 of 24 | accepted (1) |
 | 5 | $1.30 | 25 % | 33 % | 0 % | 0 | 4 | 24 / 24 / 24 of 24 | accepted (1) |
 | 6 | $1.64 | 25 % | 33 % | 0 % | 0 | 5 | 21 / 23 / 22 of 24 | accepted (1) |
-| 7 | $2.00 | 0 % | 42 % | 0 % | 0 | 6 | 20 / 22 / 22 of 24 | – |
+| 7 | $2.00 | 0 % | 42 % | 0 % | 0 | 6 | 20 / 22 / 22 of 24 | accepted (1) |
+| 8 | $2.43 | 25 % | 42 % | 0 % | 0 | 6 | 19 / 24 / 16 of 24 | accepted (1) |
+| 9 | $2.84 | 38 % | 42 % | 0 % | 0 | 5 | 17 / 23 / 23 of 24 | accepted (1) |
+| 10 | $3.20 | 25 % | 42 % | 0 % | 0 | 5 | 20 / 24 / 24 of 24 | – |
 
 ## Plasticity (held-out ID)
 
-- Average plasticity (Eq. 3, last checkpoint): 4162.3 points per $1,000.
-- Saturation fit (Eq. 4): S0 = 33.3 %, rise = 4.8 points, h = 7.97.
+- Average plasticity (Eq. 3, last checkpoint): 2602.6 points per $1,000.
+- Saturation fit (Eq. 4): S0 = 37.0 %, rise = 5.1 points, h = 10.00.
 - P_sat (Eq. 5, paper rules): 0.0 points per $1,000 (no_rise).
-- Rise against a flat curve: p = 0.991; it does not pass the p < 0.05 gate from report 03.
+- Rise against a flat curve: p = 0.971; it does not pass the p < 0.05 gate from report 03.
