@@ -26,8 +26,8 @@ paper's equations (Section 2) and appendix (Appendix B settings, Appendix I prom
 | Metrics (Eq. 2–5, bootstrap) | yes | **phase 1 done**, no API cost |
 | Harness (sandbox, reflection, validator, ledger) | not released | **phase 2: built, dry-run tested and run on Hex and 5×5 Go** |
 | Games | Chess, 5×5 Go, 6×6 Hex, NetHack | 6×6 Hex and 5×5 Go (GNU Go opponent, calibration in report 13) |
-| Models | 8 frontier models | Sonnet 5.5 and Haiku 5.5 (Opus 5.5 probed only) |
-| Checkpoints | 20 (NetHack 40) | 5–10 |
+| Models | 8 frontier models | Sonnet 5.5 and Haiku 5.5; GLM 5.3 in plan C ([report 20](reports/20_glm_tool_rewrite.md)); Opus 5.5 probed only |
+| Checkpoints | 20 (NetHack 40) | 11 (checkpoints 0–10); one Haiku lineage 21 |
 | Learning cost per lineage | about $1,000–3,000 (chess) | measured on a smoke run first |
 
 ## Limitation tests
@@ -47,28 +47,34 @@ Full write-up with methods and limitations: [reports/TECHNICAL_REPORT.md](report
 
 | Lineage | Model | Reflection effort | Held-out ID, early → late | Report |
 |---|---|---|---|---|
-| `lineage_a2`, `sonnet_medium_rep2` | Sonnet 5.5 | medium | 59 % → 62 % (no plasticity) | [10](reports/10_lineage_a2.md), [12](reports/12_comparison.md) |
-| `sonnet_reflect_high`, `..._rep2` | Sonnet 5.5 | high | 73 % → **83 %** | [12](reports/12_comparison.md) |
+| `lineage_a2`, `sonnet_medium_rep2` | Sonnet 5.5 | medium | 59 % → 65 % (p = 0.32) | [10](reports/10_lineage_a2.md), [12](reports/12_comparison.md) |
+| `sonnet_reflect_high`, `..._rep2` | Sonnet 5.5 | high | 73 % → **83 %** (p = 0.04) | [12](reports/12_comparison.md) |
 | `haiku_r20` (21 checkpoints) | Haiku 5.5 | medium | 32 % → 31 % (no plasticity) | [12](reports/12_comparison.md) |
-| `hex_haiku_reflect_high`, `..._rep2` | Haiku 5.5 | high | 44 % → 39 % (no plasticity) | [15](reports/15_model_game_comparison.md) |
-| `go_sonnet_reflect_high`, `..._rep2` (Go) | Sonnet 5.5 | high | 57 % → **71 %** | [15](reports/15_model_game_comparison.md) |
-| `go_haiku_reflect_high`, `..._rep2` (Go) | Haiku 5.5 | high | 55 % → 48 % (no plasticity) | [15](reports/15_model_game_comparison.md) |
+| `hex_haiku_medium_rep2` | Haiku 5.5 | medium | 50 % → 38 % (no plasticity) | [10](reports/10_hex_haiku_medium_rep2.md) |
+| `hex_haiku_reflect_high`, `..._rep2` | Haiku 5.5 | high | 44 % → 40 % (no plasticity) | [15](reports/15_model_game_comparison.md) |
+| `go_sonnet_reflect_high`, `..._rep2` (Go) | Sonnet 5.5 | high | 57 % → 60 % (p = 0.57; one lineage 75 % → 90 %) | [15](reports/15_model_game_comparison.md) |
+| `go_haiku_reflect_high`, `..._rep2` (Go) | Haiku 5.5 | high | 55 % → 47 % (no plasticity) | [15](reports/15_model_game_comparison.md) |
 
 With two lineages per condition, high-effort reflection ends at 83 % held-out ID against
-62 % for medium (z = 3.25, p = 0.001), from the same starting point. At medium effort the
+65 % for medium over checkpoints 4–10 (z = 3.75, p = 0.0002), from the same starting point. At medium effort the
 reflector rarely read its game logs and wrote at most one version of a tool; at high effort it revised
 its code and the actor used it in most games. Phase 1 (reports 01–04) found that a single
 lineage's P_sat is noisy and that the paper's 10-point rule alone lets false rises
 through; both shaped how these results are tested.
 
-Early → late is checkpoints 0–3 → 4–7 for the reports 10–12 rows and 0–2 → 3 onward for
-report 15. On 5×5 Go (report 15) Sonnet at high effort also improves
-(57 % → 71 %, p = 0.01) and Haiku at high effort stays flat on both games, so Haiku's flat
-result is not an effort artefact. The two Go Sonnet lineages diverge: one reaches 90 % and
-passes the per-lineage flat-curve test (p = 0.04), the other stays near 30–35 % until its
-last checkpoint and stops at its cost cap. How agents adapt to their limits differs too:
-Sonnet moved play into a saved tool once games ran into the 32-call budget, while Haiku used
-more calls per game over time and kept submitting illegal Go moves.
+Early → late is checkpoints 0–3 → 4–10 for the Hex Sonnet rows, 0–9 → 10–20 for
+`haiku_r20`, and 0–2 → 3–10 for the rest (report 15). Haiku at high effort stays flat on
+both games, so Haiku's flat result is not an effort artefact. On 5×5 Go the pooled Sonnet
+gain read 57 % → 71 % (p = 0.01) through checkpoint 7 and is gone at checkpoint 10. The two
+Go Sonnet lineages diverge: one reaches 90 % and passes the per-lineage flat-curve test
+(p = 0.019); the other forfeited 20 of 32 games on time at checkpoint 6, capped its own
+search, and sat at 15 % for checkpoints 7–9 before ending at 50 %. How agents adapt to their
+limits differs too: Sonnet moved play into a saved tool once games ran into the 32-call
+budget, while Haiku used more calls per game over time and kept submitting illegal Go moves.
+
+GLM 5.3 on Hex (plan C) shows a different way to fail: one reflection rewrote its search
+tool with a one-line bug, held-out ID fell from 75 % to 0 %, and the next reflection fixed a
+different bug it took for the cause ([report 20](reports/20_glm_tool_rewrite.md)).
 
 Limitation tests 5 and 6 (Hex, Sonnet, reflection effort high):
 
