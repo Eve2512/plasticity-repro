@@ -94,6 +94,22 @@ chat-completions endpoint. Tools, prompts, budgets and the sandbox are unchanged
   reasoning, not a summary, so its length is not comparable with Claude's summaries.
 - Malformed tool-call arguments are run as an empty call; Claude's API never returns them.
 
+## GLM 5.3 interruption and new caps (2026-11-02)
+
+The four GLM lineages of plan C stopped at checkpoints 2–6 when the OpenRouter API key reached
+its own lifetime spending limit ($200), separate from the account balance. OpenRouter answered
+HTTP 403 "Key limit exceeded". Two harness faults hid this: the adapter's error could not be
+pickled back from a game worker, and a 403 was not treated as lack of credit, so each run
+crashed and retried five times. Both are fixed: the error pickles, and a 403 that names a limit
+stops the run cleanly, as HTTP 402 does.
+
+The user raised the key's limit and the lineages were resumed (scripts/plan_c_resume_glm.sh).
+Each resume played its unfinished checkpoint again from the start; the discarded calls count
+toward the cap but are not in the results. GLM cost more per checkpoint than its probe
+suggested, so the user approved higher caps ($14/$14/$10/$10 → $18/$16/$18/$18). A lineage
+that stops at its old cap is resumed with the new one (scripts/plan_c_glm_new_caps.sh), which
+again replays the unfinished checkpoint. Games ran 2 at a time per GLM lineage throughout.
+
 ## Not specified in the paper
 
 - Exact Hex opening banks and the alpha–beta evaluation function.
