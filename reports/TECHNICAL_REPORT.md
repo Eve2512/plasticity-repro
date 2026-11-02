@@ -10,9 +10,10 @@ no code; everything here was rebuilt from the paper's equations (Section 2) and 
 
 - **Plasticity depends on how hard the agent reflects.** With the same model (Claude
   Sonnet 5.5), the same games and the same per-game budget, reflection at effort
-  `medium` gave no held-out gain in two lineages (59 % → 62 %), while reflection at effort
-  `high` gave a gain in two lineages (73 % → 83 %). Over checkpoints 4–7, high ends at
-  83 % against 62 % for medium (z = 3.25, p = 0.001), from an identical start.
+  `medium` gave no clear held-out gain in two lineages (59 % → 65 %, p = 0.32), while
+  reflection at effort `high` gave a gain in two lineages (73 % → 83 %, p = 0.04). Over
+  checkpoints 4–10, high ends at 83 % against 65 % for medium (z = 3.75, p = 0.0002),
+  from an identical start.
 - **The failure mode at medium effort was shallow reflection, not missing reuse.** The
   agent ran its saved tool in most games, but each reflection used 4–6 of 50 calls,
   rarely opened the per-move diagnostics it was given, and never improved the tool.
@@ -20,14 +21,16 @@ no code; everything here was rebuilt from the paper's equations (Section 2) and 
   (code revised at 9 checkpoints): artifacts were built, changed and used, and failures
   remained. At reflection effort `high` it stayed flat too, on Hex and on Go, so its flat
   result is not an effort artefact.
-- **On 5×5 Go the Sonnet result carries over, unevenly.** Pooled over two lineages,
-  Sonnet at effort `high` rises from 57 % to 71 % held-out ID (p = 0.01); one lineage
-  reaches 90 % and passes the flat-curve test, the other stays near 30–35 % until late
-  and stops at its cost cap. Haiku goes from 55 % to 48 %.
+- **On 5×5 Go the Sonnet result does not hold up when pooled.** Through checkpoint 7,
+  Sonnet at effort `high` rose from 57 % to 71 % held-out ID (p = 0.01). Over checkpoints
+  0–10 the pooled gain is +3 pp (57 % → 60 %, p = 0.57): one lineage reaches 90 % and passes
+  the flat-curve test (p = 0.019), the other falls to 15–20 % at checkpoints 6–9 after
+  timeouts and a search cap it set itself. Haiku goes from 55 % to 47 %.
 - **How the agent adapts to its limits differs by model.** When Go games ran into the
   32-call budget, Sonnet moved play into its saved tool at the next checkpoint; Haiku used
   more calls per game over time. One Sonnet lineage later broke the time limit instead,
-  by calling its tool with a much larger search budget.
+  forfeiting 20 of 32 games at one checkpoint; after it capped its own search, held-out ID
+  stayed at 15 % for three checkpoints.
 - **The gain lives in the saved tools, and the tools come from game records.** Removing
   the final inventory of the two high-effort Hex Sonnet lineages drops held-out ID from
   92 % to 50–54 % (test 6). Reflection without game records built no tools at all; on the
@@ -69,7 +72,7 @@ the inventory and session, empty environment).
 | Paper | Here |
 |---|---|
 | Chess, Go, Hex, NetHack; 8 models | Hex and 5×5 Go; Sonnet 5.5 and Haiku 5.5 |
-| 20 checkpoints; Hex 40 / 40 / 32 games | 8 checkpoints with 8 / 12 / 4 games (Sonnet); 21 checkpoints with 20 / 24 / 8 (Haiku) |
+| 20 checkpoints; Hex 40 / 40 / 32 games | 11 checkpoints with 8 / 12 / 4 games; one Haiku lineage with 21 checkpoints and 20 / 24 / 8 |
 | Native engine, 10k–1M nodes (train/ID), 10M (OOD) | Python engine, 3k–100k (train/ID), 1M (OOD) |
 | 10/11-ply openings | 4/5-ply openings from one pool, filtered (a weak player loses, a 30k-node engine wins) and dealt to splits by engine-scored difficulty |
 | Container sandbox; prompts in Appendix I | `sandbox-exec`; prompts paraphrased with the same rules and budgets |
@@ -98,13 +101,19 @@ curve, and conclusions rest on pooled lineages, not one P_sat.
 
 | Lineage | Model | Reflection effort | Held-out ID per checkpoint (%) | Billed |
 |---|---|---|---|---|
-| `lineage_a2` | Sonnet 5.5 | medium | 67, 50, 67, 67, 67, 58, 67, 50 | $9.49 |
-| `sonnet_medium_rep2` | Sonnet 5.5 | medium | 58, 33, 67, 67, 58, 67, 75, 58 | $9.57 |
-| `sonnet_reflect_high` | Sonnet 5.5 | high | 50, 50, 83, 75, 75, 75, 75, 75 | $7.44 |
-| `sonnet_reflect_high_rep2` | Sonnet 5.5 | high | 75, 67, 92, 92, 92, 92, 92, 92 | $7.77 |
+Plan B extended every lineage below to checkpoint 10 (the no-feedback controls and
+`haiku_r20` were not extended) and added `hex_haiku_medium_rep2`.
+
+| Lineage | Model | Reflection effort | Held-out ID per checkpoint (%) | Billed |
+|---|---|---|---|---|
+| `lineage_a2` | Sonnet 5.5 | medium | 67, 50, 67, 67, 67, 58, 67, 50, 58, 58, 75 | $13.74 |
+| `sonnet_medium_rep2` | Sonnet 5.5 | medium | 58, 33, 67, 67, 58, 67, 75, 58, 75, 75, 75 | $14.50 |
+| `sonnet_reflect_high` | Sonnet 5.5 | high | 50, 50, 83, 75, 75, 75, 75, 75, 75, 75, 75 | $10.05 |
+| `sonnet_reflect_high_rep2` | Sonnet 5.5 | high | 75, 67, 92, 92, 92, 92, 92, 92, 92, 92, 92 | $11.06 |
 | `haiku_r20` | Haiku 5.5 | medium | 29 … 33 (21 checkpoints; mean ≈ 31) | $7.86 |
-| `hex_haiku_reflect_high` | Haiku 5.5 | high | 33, 42, 42, 33, 42, 33, 33, 42 | $1.49 |
-| `hex_haiku_reflect_high_rep2` | Haiku 5.5 | high | 50, 58, 42, 50, 50, 33, 42, 33 | $1.58 |
+| `hex_haiku_medium_rep2` | Haiku 5.5 | medium | 42, 50, 58, 58, 33, 50, 17, 42, 25, 50, 25 | $2.07 |
+| `hex_haiku_reflect_high` | Haiku 5.5 | high | 33, 42, 42, 33, 42, 33, 33, 42, 42, 42, 42 | $2.11 |
+| `hex_haiku_reflect_high_rep2` | Haiku 5.5 | high | 50, 58, 42, 50, 50, 33, 42, 33, 33, 42, 50 | $2.19 |
 | `sonnet_nofeedback_high` | Sonnet 5.5 | high, no game records | 75, 75, 75, 50, 58, 58, 58, 42 | $7.00 |
 | `sonnet_nofeedback_high_rep2` | Sonnet 5.5 | high, no game records | 50, 83, 75, 58, 58, 50, 83, 42 | $6.85 |
 
@@ -112,35 +121,39 @@ On 5×5 Go (20 held-out ID games per checkpoint, report 15):
 
 | Lineage | Model | Reflection effort | Held-out ID per checkpoint (%) | Billed |
 |---|---|---|---|---|
-| `go_sonnet_reflect_high` | Sonnet 5.5 | high | 55, 30, 30, 35, 35, 60 (stopped by its $13 cap) | $13.01 |
-| `go_sonnet_reflect_high_rep2` | Sonnet 5.5 | high | 75, 60, 90, 85, 85, 90, 90, 90 | $12.59 |
-| `go_haiku_reflect_high` | Haiku 5.5 | high | 55, 55, 65, 55, 40, 45, 45, 35 | $2.10 |
-| `go_haiku_reflect_high_rep2` | Haiku 5.5 | high | 50, 55, 50, 50, 45, 60, 50, 55 | $1.93 |
+| `go_sonnet_reflect_high` | Sonnet 5.5 | high | 55, 30, 30, 35, 35, 60, 20, 15, 15, 15, 50 | $20.93 |
+| `go_sonnet_reflect_high_rep2` | Sonnet 5.5 | high | 75, 60, 90, 85, 85, 90, 90, 90, 90, 90, 90 | $17.95 |
+| `go_haiku_reflect_high` | Haiku 5.5 | high | 55, 55, 65, 55, 40, 45, 45, 35, 40, 45, 45 | $2.97 |
+| `go_haiku_reflect_high_rep2` | Haiku 5.5 | high | 50, 55, 50, 50, 45, 60, 50, 55, 35, 50, 55 | $2.85 |
 
 ### 3.1 Reflection effort separates learning from not learning
 
-| Condition (2 lineages each) | ID, checkpoints 0–3 | ID, checkpoints 4–7 | Change |
+| Condition (2 lineages each) | ID, checkpoints 0–3 | ID, checkpoints 4–10 | Change |
 |---|---|---|---|
-| medium | 57/96 = 59 % | 60/96 = 62 % | z = 0.44, p = 0.66 |
-| high | 70/96 = 73 % | 80/96 = 83 % | z = 1.75, p = 0.08 |
+| medium | 57/96 = 59 % | 110/168 = 65 % | z = 0.99, p = 0.32 |
+| high | 70/96 = 73 % | 140/168 = 83 % | z = 2.02, p = 0.04 |
 
-High against medium over checkpoints 4–7: 83 % vs 62 %, z = 3.25, p = 0.001. Checkpoint 0
-is played before any reflection and is therefore the same condition for both: 15/24 each.
-Training scores rise to 100 % in the second half for both high-effort lineages.
+High against medium over checkpoints 4–10: 83 % vs 65 %, z = 3.75, p = 0.0002 (over 4–7,
+before plan B: 83 % vs 62 %, p = 0.001). Checkpoint 0 is played before any reflection and is
+therefore the same condition for both: 15/24 each. Training scores reach 100 % from
+checkpoint 3 on for both high-effort lineages, and their held-out ID has not changed since
+checkpoint 3: they had saturated by then. The medium replicate `sonnet_medium_rep2` crept up
+late (75 % at checkpoints 8–10) without ever running a saved tool; its flat-curve test is
+p = 0.24.
 
 | Behaviour | medium | high |
 |---|---|---|
-| Calls per reflection (of 50) | 5.4–5.6 | 8.0–10.3 |
+| Calls per reflection (of 50) | 5.3–5.5 | 6.8–8.8 |
 | Checkpoints with changed tool code | 0–1 | 2–3 |
-| Games running a saved tool | 0–61 % | 85–88 % |
+| Games running a saved tool | 0–64 % | 89–91 % |
 
 ### 3.2 Where the loop broke at medium effort
 
 In `lineage_a2` the second reflection wrote a 44-line tool (connection distances,
 candidate moves). The actor then ran it in 16–22 of 24 games per checkpoint, but training
 scores fell (88 % → 60 % before vs with the tool, z = 2.0) and held-out scores did not move.
-Five later reflections left the tool unchanged, filed every loss under one failure mode,
-and appended a paragraph of advice to a notes file. The reflector's own summaries say so:
+None of the eight later reflections changed the tool; through checkpoint 7 they filed
+every loss under one failure mode and appended a paragraph of advice to a notes file. The reflector's own summaries say so:
 "I didn't open the move-by-move session logs", "I did not change `tools/hexeval.py`".
 In the paper's terms this is high reuse with failures remaining; here the cause is the
 reflection step, not retrieval. In the medium replicate, no saved tool was ever run.
@@ -153,9 +166,11 @@ checkpoints, a saved tool run in a third of games). The saturation fit reports a
 "rise" by extrapolation that the flat-curve test rejects (p = 0.94), a live example of the
 false-rise problem from Section 2.
 
-Haiku at reflection effort `high` (two lineages, 8 checkpoints each) also stays flat on Hex:
-44 % → 39 % between checkpoints 0–2 and 3–7 (p = 0.47), with 19–22 reflection calls per
-round. More effort made its reflection longer, not its play better.
+Haiku at reflection effort `high` (two lineages, 11 checkpoints each) also stays flat on
+Hex: 44 % → 40 % between checkpoints 0–2 and 3–10 (p = 0.52), with 19–25 reflection calls
+per round. More effort made its reflection longer, not its play better. A second
+medium-effort Hex lineage at the high-effort lineages' game counts (`hex_haiku_medium_rep2`,
+plan B) went from 50 % to 38 % (p = 0.19) while revising its code at 7 of 10 reflections.
 
 ### 3.4 5×5 Go: the model matters more than the game
 
@@ -165,18 +180,20 @@ were seen.
 
 | Game | Model | Early | Late | p | Late Sonnet vs Haiku |
 |---|---|---|---|---|---|
-| Hex | Sonnet 5.5 | 69 % | 83 % | 0.02 | +44 pp (p < 0.001) |
-| Hex | Haiku 5.5 | 44 % | 39 % | 0.47 | |
-| Go | Sonnet 5.5 | 57 % | 71 % | 0.01 | +23 pp (p < 0.001) |
-| Go | Haiku 5.5 | 55 % | 48 % | 0.23 | |
+| Hex | Sonnet 5.5 | 69 % | 83 % | 0.013 | +43 pp (p < 0.001) |
+| Hex | Haiku 5.5 | 44 % | 40 % | 0.52 | |
+| Go | Sonnet 5.5 | 57 % | 60 % | 0.57 | +13 pp (p = 0.001) |
+| Go | Haiku 5.5 | 55 % | 47 % | 0.13 | |
 
-The pooled tests treat games as independent and ignore lineage, so they summarise rather
-than decide. Per lineage, only `go_sonnet_reflect_high_rep2` passes the flat-curve test
-(75 % → 90 %, p = 0.04). Its tool was called in every game from checkpoint 2 on. The other
-Go Sonnet lineage called its tool from checkpoint 1 but stayed at 30–35 % until checkpoint
-5 (60 %), used almost twice as many reflection calls (25 vs 14 per round) and so reached its
-$13 cap after 6 checkpoints. Same model, same settings, opposite outcomes: one lineage is
-not enough to rank anything.
+Late is checkpoints 3–10. Through checkpoint 7 Go Sonnet read 57 % → 71 % (p = 0.01); the
+three added checkpoints removed that gain. The pooled tests treat games as independent and
+ignore lineage, so they summarise rather than decide. Per lineage, only
+`go_sonnet_reflect_high_rep2` passes the flat-curve test (75 % → 90 %, p = 0.019). Its tool
+was called in every game from checkpoint 2 on. The other Go Sonnet lineage called its tool
+from checkpoint 1 but stayed at 30–35 % until checkpoint 5 (60 %), then fell to 15–20 % for
+checkpoints 6–9 (section 3.5) and ended at 50 %. Same model, same settings, opposite
+outcomes: one lineage is not enough to rank anything, and eight checkpoints were not enough
+to see where this one was going.
 
 OOD (GNU Go level 10) does not move for any condition. On 5×5 the GNU Go levels play almost
 alike (report 13), so Go OOD tests new openings more than a stronger opponent.
@@ -201,16 +218,24 @@ to the budget. At the next checkpoint it handed play to its saved tool: more tha
 per model call, no game near the budget. Haiku drifted the other way on both games (Hex
 10 → 17 calls per game, Go 11 → 16) and kept submitting illegal Go moves.
 
-The adaptation can overshoot. In the last checkpoint `go_sonnet_reflect_high` played
-before its cap (checkpoint 6, all 32 games played but not counted), the actor called its
-tool with a far larger search budget (`budget=2500000`); the calls ran past 240 s and 9 of
-32 games were forfeited. The lineage that relaxed one limit (model calls) broke another
-(time). The other Go Sonnet lineage never did this.
+The adaptation can overshoot. `go_sonnet_reflect_high` played checkpoint 6 twice. Under
+plan A it finished before the $13 cap stopped the lineage and was not counted: the actor
+called its tool with a far larger search budget (`budget=2500000`), the calls ran past
+240 s and 9 of 32 games were forfeited. Plan B's resume replayed it: this time the actor
+followed its playbook's 3M nodes per search, which the engine applied to every deepening
+iteration, and 20 of 32 games were forfeited (all 8 training games scored 0). The next
+reflection diagnosed this and capped total search at 1.5M nodes. Timeouts stopped, but
+held-out ID stayed at 15 % for checkpoints 7–9, while the reflections reported White
+positions that read +8 to +12 early and then collapsed. It came back to 50 % at checkpoint
+10 after a reflection that changed only the tool's description and the playbook. The
+lineage that relaxed one limit (model calls) broke another (time), and its repair for that
+coincided with its worst stretch. The other Go Sonnet lineage never did this.
 
 ### 3.6 Artifact ablation (limitation test 6)
 
-From the final checkpoint of each high-effort Hex Sonnet lineage, 24 held-out ID games per
-arm with the same model, openings and opponents (report 17, $4.75):
+From checkpoint 7 of each high-effort Hex Sonnet lineage (the final one before plan B; both
+held the same score through checkpoint 10), 24 held-out ID games per arm with the same
+model, openings and opponents (report 17, $4.75):
 
 | Lineage | With final inventory | Empty inventory | Inventory, actor told to use it |
 |---|---|---|---|
@@ -241,7 +266,8 @@ checkpoint, so the arms can be compared game by game:
 | Games won only without | 10 | 5 |
 | Sign test p | 0.81 | 2.5e-07 |
 
-The paired test is far stronger than either lineage's own flat-curve test (p = 0.12–0.13).
+The paired test is far stronger than either lineage's own flat-curve test (p = 0.12–0.13
+over checkpoints 0–7). The controls stop at checkpoint 7, so the comparison does too.
 It controls for openings and opponents but not for time: the control ran three days later
 (2026-10-28/29 vs 2026-10-25). At checkpoint 0 the arms are level (15 vs 15 wins).
 
@@ -307,17 +333,20 @@ What the summaries show (report 19; keyword codes checked by reading samples):
 - **Two small games.** 6×6 Hex and 5×5 Go only; no chess or NetHack. On 5×5 the GNU Go
   levels barely differ, so Go train/ID/OOD differ mostly by opening.
 - **Two models, one provider.** No cross-family comparison; OpenRouter routing was used.
-- **Small held-out sets.** 12 ID games per checkpoint on Hex (24 for `haiku_r20`), 20 on Go. Single lineages do
-  not pass the flat-curve test (p = 0.12–0.13 for the high-effort runs); the effort result
-  rests on pooling two lineages per condition.
+- **Small held-out sets.** 12 ID games per checkpoint on Hex (24 for `haiku_r20`), 20 on Go. Single Hex lineages do
+  not pass the flat-curve test (p = 0.09–0.11 for the high-effort runs over checkpoints
+  0–10); the effort result rests on pooling two lineages per condition.
 - **Two lineages per condition**, all with the same opening bank; no seeds varied beyond
   model sampling.
-- **Cost caps shape the Go data.** One Go Sonnet lineage stopped after 6 of 8
-  checkpoints, and its uncounted last checkpoint is the one where it lost games to timeouts.
+- **Cost caps shaped the Go data before plan B.** One Go Sonnet lineage stopped after 6 of
+  8 checkpoints under plan A; plan B resumed it, replaying the uncounted checkpoint 6 as a
+  new sample, so its checkpoint 6 is not the one first played.
 - **The effort question was raised after seeing data.** The first high-effort run was
   motivated by the medium-effort failure; the replicates were run afterwards, but a
   pre-registered study would be stronger.
-- **Fewer checkpoints than the paper** for Sonnet (8 vs 20) and scaled-down opponents.
+- **Fewer checkpoints than the paper** (11 vs 20) and scaled-down opponents. Extending
+  from 8 to 11 checkpoints moved one pooled result (Go Sonnet, +15 pp to +3 pp), so later
+  checkpoints could move others.
 - **No thinking in the saved transcripts.** The models think on every call and are billed
   for it. A probe on 2026-10-28 (`scripts/probe_thinking.py`) found that Sonnet 5.5 through
   OpenRouter returns a short thinking summary even without asking, and Haiku 5.5 returns one
@@ -365,6 +394,7 @@ uv run python scripts/run_hex.py --model anthropic/claude-sonnet-5.5 --rounds 7 
 uv run python scripts/compare_runs.py lineage_a2 sonnet_reflect_high my_run
 brew install gnu-go          # for Go
 scripts/plan_a.sh            # the six reflection-effort-high lineages of report 15
+scripts/plan_b.sh            # extends every lineage to checkpoint 10
 uv run python scripts/compare_models.py
 uv run python scripts/ablate_inventory.py --yes --cap 8           # test 6, report 17
 uv run python scripts/run_hex.py --model anthropic/claude-sonnet-5.5 --rounds 7 \
@@ -374,5 +404,6 @@ uv run python scripts/compare_feedback.py                        # report 18
 uv run python scripts/replay_thinking.py --dry                   # report 16: plan, then --yes
 ```
 
-Total API spend for the whole project: $107.05 (all lineages, smoke runs, probes, tests 5
-and 6 and the thinking replay). Reports 01–19 in `reports/` hold every number above.
+Total API spend for the whole project: $229.27 as of 2026-11-02 (all lineages, smoke runs,
+probes, tests 5 and 6, the thinking replay, plan B's extensions, and plan C's four GLM 5.3
+lineages, $48.05 billed, report 20). Reports 01–20 in `reports/` hold every number above.
