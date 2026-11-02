@@ -77,6 +77,18 @@ def test_retries_transient_errors_and_stops_on_402():
     with pytest.raises(BudgetExceeded):
         model.step("s", [{"role": "user", "content": "go"}], [BASH])
 
+    # the key's own spending limit (seen on 2026-11-02) also stops the run cleanly
+    model = ChatModel("z-ai/glm-5.3", "k", post=FakePost(ProviderError(403, "Key limit exceeded (total limit)")))
+    with pytest.raises(BudgetExceeded):
+        model.step("s", [{"role": "user", "content": "go"}], [BASH])
+
+
+def test_provider_error_survives_pickling():
+    # Game workers send exceptions back to the runner by pickling them.
+    import pickle
+    exc = pickle.loads(pickle.dumps(ProviderError(400, "bad request")))
+    assert exc.status == 400 and str(exc) == "HTTP 400: bad request"
+
 
 def test_model_spec_builds_the_right_adapter():
     assert isinstance(ModelSpec("z-ai/glm-5.3", key="k", effort="high")(), ChatModel)

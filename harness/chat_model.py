@@ -37,10 +37,19 @@ OUTAGE_WAITS = (30, 60, 120, 240, 300, 300, 300, 300, 300)  # as in anthropic_mo
 RETRY_STATUS = {408, 409, 429, 500, 502, 503, 504, 529}
 
 
+def out_of_credit(status: int, message: str) -> bool:
+    """402: the account is empty. 403 naming a limit: the key's own spending limit is used up."""
+    return status == 402 or (status == 403 and "limit" in message.lower())
+
+
 class ProviderError(Exception):
     def __init__(self, status: int, message: str):
-        super().__init__(f"HTTP {status}: {message}")
+        super().__init__(status, message)  # both in args, so the error can be pickled back from a game worker
         self.status = status
+        self.message = message
+
+    def __str__(self):
+        return f"HTTP {self.status}: {self.message}"
 
 
 def to_chat_messages(system: str, messages: list[dict]) -> list[dict]:
@@ -128,8 +137,8 @@ class ChatModel:
                     raise
                 problem = type(exc).__name__
             except ProviderError as exc:
-                if exc.status == 402:  # out of credits or over the key's limit
-                    raise BudgetExceeded(f"provider refused for lack of credit (HTTP 402) on {self.name}") from exc
+                if out_of_credit(exc.status, exc.message):
+                    raise BudgetExceeded(f"provider refused for lack of credit (HTTP {exc.status}) on {self.name}") from exc
                 if exc.status not in RETRY_STATUS or wait is None:
                     raise
                 problem = str(exc)
