@@ -9,7 +9,7 @@ after (all completed ones), so runs stopped early by their cap still count.
 
 import json
 import sys
-from math import erf, sqrt
+from math import erfc, sqrt
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
@@ -52,7 +52,7 @@ def z_test(a, n, b, m) -> tuple[float, float]:
     if not se:
         return float("nan"), float("nan")
     z = (b / m - a / n) / se
-    return z, 2 * (1 - 0.5 * (1 + erf(abs(z) / sqrt(2))))
+    return z, erfc(abs(z) / sqrt(2))
 
 
 def pct(a, n) -> str:
@@ -122,25 +122,34 @@ def constraint_section() -> list[str]:
 READING = [
     "", "## Reading",
     "",
-    "- Sonnet improves with experience on both games; Haiku does not. Pooled early → late held-out ID: Sonnet",
-    "  +14 pp (Hex) and +15 pp (Go), Haiku −5 pp and −7 pp. Late Sonnet beats late Haiku by 44 pp (Hex) and",
-    "  23 pp (Go). The pooled z-tests treat games as independent and ignore lineage; they are a summary, not",
+    "- Checkpoints 0–10 (plan B extended every lineage from 7 or 5). Hex Sonnet improves with experience and",
+    "  Haiku does not on either game: pooled early → late held-out ID is +14 pp for Hex Sonnet, −4 pp (Hex) and",
+    "  −8 pp (Go) for Haiku. Go Sonnet, +15 pp (p = 0.011) through checkpoint 7, is now +3 pp (p = 0.57): run 1",
+    "  fell to 15–20 % at checkpoints 6–9 (below). Late Sonnet still beats late Haiku by 43 pp (Hex) and",
+    "  13 pp (Go). The pooled z-tests treat games as independent and ignore lineage; they are a summary, not",
     "  the gate. Haiku at reflection effort high stays flat, so the earlier Haiku result was not an effort artefact.",
-    "- Per lineage, only `go_sonnet_reflect_high_rep2` passes the p < 0.05 rise gate (75 → 90 %, p = 0.04). The",
-    "  two Hex Sonnet lineages rise by 21–27 pp but have p ≈ 0.12–0.13 with 12 ID games per checkpoint.",
+    "- Per lineage, only `go_sonnet_reflect_high_rep2` passes the p < 0.05 rise gate (75 → 90 %, p = 0.019). The",
+    "  two Hex Sonnet lineages rise by 21–26 pp (p = 0.09–0.11, 12 ID games per checkpoint); both have held one",
+    "  score since checkpoint 2–3 (75 % and 92 %), so the extra checkpoints added no information about the rise.",
+    "  `hex_haiku_reflect_high_rep2` and `go_haiku_reflect_high_rep2` now get 50–57 pp extrapolated rises and",
+    "  P_sat above 10,000 from their last one or two checkpoints, with p = 0.99: the no-learning false positives",
+    "  of report 03, which the gate rejects.",
     "- The two Go Sonnet lineages diverge. Rep2's saved tool was in use in every game from checkpoint 2 and ID held",
-    "  at 85–90 %. Run 1 called its tool from checkpoint 1 but stayed at 30–35 % until checkpoint 5 (60 %), and",
-    "  cost almost twice as much per checkpoint (25 reflection calls per round vs 14). It hit its $13 cap after 6",
-    "  completed checkpoints.",
+    "  at 85–90 %. Run 1 reached 60 % at checkpoint 5, then 20 of its 32 checkpoint-6 games ran a tool call past",
+    "  the 240 s limit (all 8 training games scored 0). Its next reflection capped total search at 1.5M nodes: no",
+    "  timeouts after that, but ID stayed at 15 % for checkpoints 7–9 while the reflection reported that White",
+    "  scores read +8 to +12 and then collapsed. It returned to 50 % at checkpoint 10 after a reflection that",
+    "  changed only the tool description and playbook. Run 1 cost $20.93 against rep2's $17.95.",
     "- Behaviour under constraints (table above). After the first reflection, Go Sonnet roughly doubled its model",
     "  calls per game (10 → 20), 31 % of games came near the 32-call budget and 6 were lost to it. At the next",
     "  checkpoint it moved play into its saved tool: 1.3 moves per model call, none near the budget, none lost.",
     "  Haiku went the other way on both games: calls per game rose (Hex 10 → 17, Go 11 → 16) and moves per call",
     "  fell, while it kept submitting illegal Go moves (1–10 per checkpoint vs Sonnet's 0–1 after checkpoint 2).",
-    "- Not in the tables: run 1's checkpoint 6 finished all 32 games before the cap stopped it, so it is not",
-    "  counted. In it the actor called its tool with a much larger search budget (e.g. `budget=2500000`), the",
-    "  call ran past the 240 s tool limit and 9 of 32 games were forfeited (ID 7/20 = 35 %, 5 ID games lost this",
-    "  way). Rep2 never did this. An adaptation that relaxes one limit (model calls) can break another (time).",
+    "- Run 1's checkpoint 6 ran twice. Under plan A it finished before the $13 cap stopped the lineage and was",
+    "  not counted (9 of 32 games forfeited on time, ID 35 %); plan B's resume replayed it (20 of 32 on time,",
+    "  ID 20 %). Under plan A the actor raised the tool's search budget itself (e.g. `budget=2500000`); under",
+    "  plan B it followed the playbook's 3M nodes per search, which the engine applied to each deepening",
+    "  iteration separately (reflection 6's own diagnosis). Rep2 never did this. An adaptation that relaxes one limit (model calls) can break another (time).",
     "- OOD (GNU Go level 10) does not move for any cell; on 5×5 it plays almost like levels 5–9 (report 13), so",
     "  OOD here tests openings more than opponent strength.",
 ]
