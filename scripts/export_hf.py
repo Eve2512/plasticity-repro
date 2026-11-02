@@ -30,7 +30,7 @@ RUNS = [
      "note": "Stopped by hand after checkpoint 0: the ID opening bank was harder than train. "
              "A few checkpoint-1 games were played before the stop; they are flagged checkpoint_complete = false."},
     {"run_id": "lineage_a2", "dir": "lineage_a2", "openings": "pooled", "report": "reports/10_lineage_a2.md",
-     "note": "Main run: 8 checkpoints, 8/12/4 games per checkpoint, pooled openings."},
+     "note": "Main run: checkpoints 0-10 (0-7 first, extended to 10 in plan B), 8/12/4 games per checkpoint, pooled openings."},
     {"run_id": "sonnet_reflect_high", "dir": "sonnet_reflect_high", "openings": "pooled",
      "report": "reports/12_comparison.md", "reflect_effort": "high",
      "note": "As lineage_a2, but reflection at effort high (games at medium)."},
@@ -47,11 +47,34 @@ RUNS = [
        "game": "go" if name.startswith("go_") else "hex", "note": note} for name, note in (
         ("hex_haiku_reflect_high", "Haiku 5.5 on Hex, reflection at effort high, 8/12/4 games per checkpoint."),
         ("hex_haiku_reflect_high_rep2", "Replicate of hex_haiku_reflect_high."),
-        ("go_sonnet_reflect_high", "Sonnet 5.5 on 5x5 Go, 8/20/4 games per checkpoint. Stopped by its $13 cap: "
-                                   "checkpoint 6 was played in full but is not complete (no results row)."),
-        ("go_sonnet_reflect_high_rep2", "Replicate of go_sonnet_reflect_high; all 8 checkpoints."),
+        ("go_sonnet_reflect_high", "Sonnet 5.5 on 5x5 Go, 8/20/4 games per checkpoint. First stopped by its $13 cap "
+                                   "during checkpoint 6; that checkpoint was played again when the lineage was extended "
+                                   "to checkpoint 10."),
+        ("go_sonnet_reflect_high_rep2", "Replicate of go_sonnet_reflect_high."),
         ("go_haiku_reflect_high", "Haiku 5.5 on 5x5 Go, 8/20/4 games per checkpoint."),
         ("go_haiku_reflect_high_rep2", "Replicate of go_haiku_reflect_high."),
+    )),
+    # plan B (2026-10-30): a second Hex Haiku lineage at reflection effort medium
+    {"run_id": "hex_haiku_medium_rep2", "dir": "hex_haiku_medium_rep2", "openings": "pooled",
+     "report": "reports/10_hex_haiku_medium_rep2.md",
+     "note": "Haiku 5.5 on Hex at reflection effort medium, 8/12/4 games per checkpoint; a second lineage "
+             "beside haiku_r20, at the other runs' game counts."},
+    # plan C (2026-11-01): Go at reflection effort medium, and GLM 5.3 at reflection effort high
+    *({"run_id": name, "dir": name, "openings": "pooled", "report": f"reports/10_{name}.md", "game": "go",
+       "note": note} for name, note in (
+        ("go_sonnet_medium", "Sonnet 5.5 on 5x5 Go at reflection effort medium, 8/20/4 games per checkpoint."),
+        ("go_sonnet_medium_rep2", "Replicate of go_sonnet_medium."),
+        ("go_haiku_medium", "Haiku 5.5 on 5x5 Go at reflection effort medium, 8/20/4 games per checkpoint."),
+        ("go_haiku_medium_rep2", "Replicate of go_haiku_medium."),
+    )),
+    *({"run_id": name, "dir": name, "openings": "pooled", "report": f"reports/10_{name}.md", "reflect_effort": "high",
+       "game": "go" if name.startswith("go_") else "hex", "note": note} for name, note in (
+        ("go_glm_reflect_high", "GLM 5.3 (z-ai) on 5x5 Go through OpenRouter's chat-completions API, reflection at "
+                                "effort high, 2 games at once. Paused once when the API key reached its spending limit, "
+                                "then resumed."),
+        ("go_glm_reflect_high_rep2", "Replicate of go_glm_reflect_high."),
+        ("hex_glm_reflect_high", "GLM 5.3 (z-ai) on Hex, as go_glm_reflect_high."),
+        ("hex_glm_reflect_high_rep2", "Replicate of hex_glm_reflect_high."),
     )),
     # limitation test 5 (reports/18_experience_vs_compute.md): reflection without game records
     *({"run_id": name, "dir": name, "openings": "pooled", "report": f"reports/10_{name}.md", "reflect_effort": "high",

@@ -4,7 +4,7 @@
 # - GLM 5.3 (harness/chat_model.py) at reflection effort high: two lineages each on Hex and Go.
 # Games per checkpoint as in the other runs: Hex 8/12/4, Go 8/20/4.
 # Starts once plan B has finished, so at most 24 games run at once, as in plans A and B,
-# and once the account has $98 left (the caps' total).
+# and once the account has $97 left (the caps add up to $98; the user approved starting at $97.66, 2026-11-01).
 # A run that meets an empty account stops cleanly (HTTP 402) and can be resumed later.
 # Each run retries with --resume after a crash (network errors), up to 5 times.
 # Usage: scripts/plan_c.sh
@@ -12,8 +12,8 @@ cd "$(dirname "$0")/.." || exit 1
 mkdir -p runs/logs
 
 while pgrep -f scripts/plan_b.sh > /dev/null; do sleep 60; done
-# The caps add up to $98; wait until the account can cover them.
-uv run python scripts/wait_for_credit.py 98 || exit 1
+# The caps add up to $98; a run that meets an empty account stops cleanly and can be resumed.
+uv run python scripts/wait_for_credit.py 97 || exit 1
 echo "plan C started $(date '+%F %T')"
 
 run() {  # name game model cap reflect-effort(or -) workers

@@ -15,7 +15,7 @@ from dataclasses import dataclass, field
 
 import anthropic
 
-from harness.chat_model import CHAT_BILLING, ChatModel
+from harness.chat_model import CHAT_BILLING, ChatModel, out_of_credit
 from harness.ledger import BudgetExceeded
 from harness.model import ModelTurn, ToolCall, ToolSpec, Usage
 from plasticity.pricing import PriceTable
@@ -149,8 +149,8 @@ class AnthropicModel:
                     raise
                 problem = type(exc).__name__
             except anthropic.APIStatusError as exc:
-                if exc.status_code == 402:  # out of credits or over the key's limit
-                    raise BudgetExceeded(f"provider refused for lack of credit (HTTP 402) on {self.name}") from exc
+                if out_of_credit(exc.status_code, str(exc)):
+                    raise BudgetExceeded(f"provider refused for lack of credit (HTTP {exc.status_code}) on {self.name}") from exc
                 if exc.status_code not in RETRY_STATUS or wait is None:
                     raise
                 problem = f"HTTP {exc.status_code}"
