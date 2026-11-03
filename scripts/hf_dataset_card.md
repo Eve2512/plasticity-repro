@@ -201,7 +201,9 @@ Held-out ID, early → late (checkpoints 0–3 → 4–10 for Hex Sonnet, 0–2 
 - **Hex Sonnet 5.5:** at reflection effort `medium`, 59 % → 65 % (p = 0.32); the reflector used
   5–6 of its 50 calls and wrote at most one version of a tool. At effort `high`, 73 % → **83 %**
   (p = 0.04), revising its code and running it in most games. Over checkpoints 4–10 high ends at
-  83 % against 65 % for medium (z = 3.75, p = 0.0002) from the same start.
+  83 % against 65 % for medium (z = 3.75, p = 0.0002) from the same start. Held-out openings
+  are fixed and the opponents deterministic, so later checkpoints largely replay the same games;
+  per opening, high effort is better on 10 of 12 and worse on 1 (sign test p = 0.012, report 23).
 - **Go Sonnet 5.5:** effort makes no difference (late 61 % at medium, 60 % at high, p = 0.69). The
   two high-effort lineages split: one holds 85–90 %, the other falls to 15–20 % at checkpoints 6–9
   after tool timeouts and a search cap it set itself.
@@ -217,7 +219,7 @@ Two limitation tests on Hex Sonnet at reflection effort `high` (reports 17 and 1
 Removing the final inventory drops held-out ID from 92 % to 50–54 % (`ablation_games`).
 Reflection without game records (`runs.reflection_feedback = "none"`) built no tools at all;
 on the same held-out openings the feedback lineages won 38 games the no-feedback lineages
-lost, and lost 5 they won, from checkpoint 3 on (sign test p = 2.5e-07).
+lost, and lost 5 they won, from checkpoint 3 on (per opening: 8 better, 1 worse, p = 0.039).
 
 Details: `reports/TECHNICAL_REPORT.md` and reports 12, 15, 21 and 22 in the source repository.
 
