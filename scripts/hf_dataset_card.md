@@ -135,6 +135,22 @@ configs:
   data_files:
   - split: train
     path: traces/games/sonnet_nofeedback_high_rep2/*.jsonl
+- config_name: traces_hex_sonnet_high_fresh
+  data_files:
+  - split: train
+    path: traces/games/hex_sonnet_high_fresh/*.jsonl
+- config_name: traces_hex_sonnet_high_fresh_rep2
+  data_files:
+  - split: train
+    path: traces/games/hex_sonnet_high_fresh_rep2/*.jsonl
+- config_name: traces_hex_sonnet_medium_fresh
+  data_files:
+  - split: train
+    path: traces/games/hex_sonnet_medium_fresh/*.jsonl
+- config_name: traces_hex_sonnet_medium_fresh_rep2
+  data_files:
+  - split: train
+    path: traces/games/hex_sonnet_medium_fresh_rep2/*.jsonl
 ---
 
 # Agent Plasticity on 6x6 Hex and 5x5 Go: Claude Sonnet 5.5, Haiku 5.5 and GLM 5.3 traces
@@ -155,17 +171,17 @@ Every table has a `game` column (`hex` or `go`).
 
 | Config | Rows (Hex + Go) | One row is |
 |---|---|---|
-| `runs` | 14 + 10 | a lineage: settings, cost, plasticity fit |
-| `checkpoints` | 139 + 110 | a checkpoint: wins per split, learning cost, reflection outcome |
-| `games` | 3,898 + 3,520 | a game: opening, moves, per-move diagnostics, token use, **full transcript** with thinking where recorded |
-| `reflections` | 130 + 105 | a reflection attempt: **full transcript** with thinking where recorded, validator result |
-| `inventories` | 656 + 578 | a file the agent saved, at a checkpoint (code, notes, tracking JSON) |
-| `calls` | 50,587 + 48,269 | a model call: tokens (input, cached, cache write, output) and charged cost |
-| `openings` | 234 + 112 | a starting position from the legacy, contested or pooled bank |
+| `runs` | 18 + 10 | a lineage: settings, cost, plasticity fit |
+| `checkpoints` | 183 + 110 | a checkpoint: wins per split, learning cost, reflection outcome |
+| `games` | 4,954 + 3,520 | a game: opening, moves, per-move diagnostics, token use, **full transcript** with thinking where recorded |
+| `reflections` | 171 + 105 | a reflection attempt: **full transcript** with thinking where recorded, validator result |
+| `inventories` | 814 + 578 | a file the agent saved, at a checkpoint (code, notes, tracking JSON) |
+| `calls` | 62,236 + 48,269 | a model call: tokens (input, cached, cache write, output) and charged cost |
+| `openings` | 366 + 112 | a starting position from the legacy, contested, pooled or fresh bank (`checkpoint` set for fresh: held-out ID openings new at each checkpoint) |
 | `thinking_replay` | 830 + 547 | a saved reflection turn sent again with thinking summaries on: recorded and replayed calls, summary |
 | `ablation_games` | 144 + 0 | a held-out ID game from a final checkpoint with the inventory kept, removed or forced (`arm`) |
-| `trace_viewer` | 379 | every reflection (with replayed summaries, labelled, where none was recorded) and ablation game, as a transcript in Pi's session format, for the trace viewer |
-| `traces_<run_id>` | 7,418 in all | every game of one run, in the same format (one config per run: the Hub's conversion timed out on one config of 3,918 files) |
+| `trace_viewer` | 420 | every reflection (with replayed summaries, labelled, where none was recorded) and ablation game, as a transcript in Pi's session format, for the trace viewer |
+| `traces_<run_id>` | 8,474 in all | every game of one run, in the same format (one config per run: the Hub's conversion timed out on one config of 3,918 files) |
 
 In `trace_viewer` and `traces_*` the `harness` column says `pi`. The traces were not run in Pi. The harness
 here is this project's own; its transcripts are written in Pi's session format because the
@@ -184,6 +200,8 @@ Runs (via OpenRouter; games always at effort `medium`):
 | `hex_haiku_reflect_high`, `..._rep2` | Hex | Haiku 5.5 | high | 0–10 | 8 / 12 / 4 | pooled |
 | `hex_glm_reflect_high`, `..._rep2` | Hex | GLM 5.3 | high | 0–10 | 8 / 12 / 4 | pooled |
 | `sonnet_nofeedback_high`, `..._rep2` | Hex | Sonnet 5.5 | high, **no game records** | 0–7 | 8 / 12 / 4 | pooled |
+| `hex_sonnet_high_fresh`, `..._rep2` | Hex | Sonnet 5.5 | high | 0–10 | 8 / 12 / 4 | fresh: held-out ID new at every checkpoint, train and OOD pooled |
+| `hex_sonnet_medium_fresh`, `..._rep2` | Hex | Sonnet 5.5 | medium | 0–10 | 8 / 12 / 4 | as above |
 | `go_sonnet_medium`, `..._rep2` | Go | Sonnet 5.5 | medium | 0–10 | 8 / 20 / 4 | pooled, training draw changes per checkpoint |
 | `go_sonnet_reflect_high`, `..._rep2` | Go | Sonnet 5.5 | high | 0–10 | 8 / 20 / 4 | as above |
 | `go_haiku_medium`, `..._rep2` | Go | Haiku 5.5 | medium | 0–10 | 8 / 20 / 4 | as above |
@@ -204,6 +222,9 @@ Held-out ID, early → late (checkpoints 0–3 → 4–10 for Hex Sonnet, 0–2 
   83 % against 65 % for medium (z = 3.75, p = 0.0002) from the same start. Held-out openings
   are fixed and the opponents deterministic, so later checkpoints largely replay the same games;
   per opening, high effort is better on 10 of 12 and worse on 1 (sign test p = 0.012, report 23).
+  Re-run with held-out openings new at every checkpoint (`*_fresh`, report 24), so no held-out game
+  repeats: high effort 72 % → 88 %, medium 57 % → 56 %, and over checkpoints 4–10 high is better on
+  46 of 84 openings and worse on 6 (sign test p = 1e-08).
 - **Go Sonnet 5.5:** effort makes no difference (late 61 % at medium, 60 % at high, p = 0.69). The
   two high-effort lineages split: one holds 85–90 %, the other falls to 15–20 % at checkpoints 6–9
   after tool timeouts and a search cap it set itself.
@@ -221,7 +242,7 @@ Reflection without game records (`runs.reflection_feedback = "none"`) built no t
 on the same held-out openings the feedback lineages won 38 games the no-feedback lineages
 lost, and lost 5 they won, from checkpoint 3 on (per opening: 8 better, 1 worse, p = 0.039).
 
-Details: `reports/TECHNICAL_REPORT.md` and reports 12, 15, 21 and 22 in the source repository.
+Details: `reports/TECHNICAL_REPORT.md` and reports 12, 15, 21–24 in the source repository.
 
 ## Fields worth knowing
 
@@ -284,12 +305,14 @@ Details: `reports/TECHNICAL_REPORT.md` and reports 12, 15, 21 and 22 in the sour
   no-feedback lineages the harness did not save the thinking blocks. Earlier transcripts
   contain actions and visible text only; `thinking_replay` gives summaries on the same
   reflection inputs (new samples, not the original reasoning).
-- **Small samples.** 12 (Hex) or 20 (Go) held-out ID games per checkpoint; differences under about 20 points
-  between halves of the run are not detectable.
+- **Small samples, replayed.** 12 (Hex) or 20 (Go) held-out ID games per checkpoint, the same openings
+  at every checkpoint except in the `*_fresh` runs, so later checkpoints often replay earlier games
+  (report 23); differences under about 20 points between halves of a run are not detectable.
 - **Two lineages** per condition, except `haiku_r20` and `hex_haiku_medium_rep2` (one each).
 - **Not every dollar is here.** About $0.07 from a first start of `lineage_a2` (restarted to
   add connection retries), $0.002 from an endpoint probe, $2.21 of Go cost probes and $0.33
-  of a `go_sonnet_reflect_high` checkpoint redone after a crash are not included. Nor are the
+  of a `go_sonnet_reflect_high` checkpoint redone after a crash are not included, nor $2.27 from a
+  doubled start of the `*_fresh` runs, which were restarted from checkpoint 0. Nor are the
   calls of checkpoints replayed after an interruption (`ledger_discarded.jsonl` in the source
   repository: $0.29–2.31 per affected lineage, $6.85 in all); the replay's games replace them.
 

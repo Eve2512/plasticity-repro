@@ -16,7 +16,7 @@ from pathlib import Path
 
 from envs import go_openings
 from envs.games import GAMES
-from envs.hex_openings import BANK_FILE, POOLED_FILE, split_banks
+from envs.hex_openings import BANK_FILE, FRESH_FILE, POOLED_FILE, split_banks
 
 ROOT = Path(__file__).resolve().parent.parent
 OUT = ROOT / "export" / "agent-plasticity-hex-go"
@@ -82,6 +82,17 @@ RUNS = [
         ("sonnet_nofeedback_high", "As sonnet_reflect_high, but reflection got no game records (test 5). "
                                    "Thinking summaries recorded."),
         ("sonnet_nofeedback_high_rep2", "Replicate of sonnet_nofeedback_high."),
+    )),
+    # plan D (2026-11-03, reports/24_fresh_openings.md): held-out ID openings new at every checkpoint
+    *({"run_id": name, "dir": name, "openings": "fresh", "report": "reports/24_fresh_openings.md", **extra,
+       "note": note} for name, extra, note in (
+        ("hex_sonnet_high_fresh", {"reflect_effort": "high"},
+         "As sonnet_reflect_high, but the 12 held-out ID openings are new at every checkpoint (bank 'fresh'). "
+         "Thinking summaries recorded."),
+        ("hex_sonnet_high_fresh_rep2", {"reflect_effort": "high"}, "Replicate of hex_sonnet_high_fresh."),
+        ("hex_sonnet_medium_fresh", {},
+         "As lineage_a2 (reflection at medium effort), with held-out ID openings new at every checkpoint."),
+        ("hex_sonnet_medium_fresh_rep2", {}, "Replicate of hex_sonnet_medium_fresh."),
     )),
 ]
 ABLATED = ["sonnet_reflect_high", "sonnet_reflect_high_rep2"]  # limitation test 6, reports/17_artifact_ablation.md
@@ -247,12 +258,19 @@ def opening_rows():
             for actor, entries in by.items():
                 for i, e in enumerate(entries):
                     moves = e["moves"] if isinstance(e, dict) else e
-                    yield {"game": game, "bank": bank, "split": split, "actor": GAMES[game].colours[actor],
-                           "index": i, "moves": moves,
+                    yield {"game": game, "bank": bank, "split": split, "checkpoint": None,
+                           "actor": GAMES[game].colours[actor], "index": i, "moves": moves,
                            "difficulty": e.get("difficulty") if isinstance(e, dict) else None}
+    for t, by in json.loads(FRESH_FILE.read_text())["banks"].items():  # plan D: held-out ID per checkpoint
+        for actor, entries in by.items():
+            for i, e in enumerate(entries):
+                yield {"game": "hex", "bank": "fresh", "split": "id", "checkpoint": int(t),
+                       "actor": GAMES["hex"].colours[actor], "index": i, "moves": e["moves"],
+                       "difficulty": e["difficulty"]}
     for split, bank in split_banks({"train": 4, "id": 4, "ood": 2}, source="legacy").items():  # the smoke run's
         for i, o in enumerate(bank):
-            yield {"game": "hex", "bank": "legacy", "split": split, "actor": GAMES["hex"].colours[o.actor], "index": i,
+            yield {"game": "hex", "bank": "legacy", "split": split, "checkpoint": None,
+                   "actor": GAMES["hex"].colours[o.actor], "index": i,
                    "moves": list(o.moves), "difficulty": None}
 
 

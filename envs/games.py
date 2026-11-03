@@ -32,7 +32,7 @@ class Game:
 def _hex_banks(games, source, checkpoint):
     from envs.hex_openings import split_banks
 
-    return split_banks(games, source=source)
+    return split_banks(games, source=source, checkpoint=checkpoint)
 
 
 def _hex_opponent(level, opening):
@@ -71,7 +71,7 @@ HEX = Game(
     name="hex", title="6x6 Hex",
     roles={"X": "red (X)", "O": "blue (O)"}, colours={"X": "red", "O": "blue"},
     train_id_levels=(3_000, 10_000, 30_000, 100_000), ood_levels=(1_000_000,),  # envs/hex_openings.py
-    openings=("pooled", "contested", "legacy"),
+    openings=("pooled", "contested", "legacy", "fresh"),
     banks=_hex_banks, opponent=_hex_opponent, diagnose=_hex_diagnose,
 )
 
