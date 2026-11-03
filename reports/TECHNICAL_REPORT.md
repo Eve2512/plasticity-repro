@@ -45,6 +45,12 @@ no code; everything here was rebuilt from the paper's equations (Section 2) and 
   never changed and played the same openings against the same deterministic opponents at
   every checkpoint, yet its held-out ID fell from 72 % to 56 % (p = 0.024 treating games as
   independent).
+- **A third model shows the metric rewarding a bad start.** GLM 5.3 lost most of its
+  checkpoint-0 games to the time and call limits, then finished them after one reflection.
+  That one jump makes three of its four lineages pass the flat-curve test and gives its Go
+  lineages P_sat over ten times the one Claude lineage that passes, while ID after checkpoint 1
+  is flat or falling and ends below Haiku on Hex (report 21). On Hex, one GLM reflection
+  wrote a one-line bug into its search tool that took held-out ID from 75 % to 0 % (report 20).
 - **The plasticity metric is fragile at this scale.** On synthetic lineages, the paper's
   10-point rule alone assigns P_sat > 0 to 26–43 % of agents that do not learn; two models
   25 % apart in true P_sat swap rank in 37–46 % of single-lineage comparisons; and the
@@ -71,7 +77,7 @@ the inventory and session, empty environment).
 
 | Paper | Here |
 |---|---|
-| Chess, Go, Hex, NetHack; 8 models | Hex and 5×5 Go; Sonnet 5.5 and Haiku 5.5 |
+| Chess, Go, Hex, NetHack; 8 models | Hex and 5×5 Go; Sonnet 5.5 and Haiku 5.5, and GLM 5.3 at reflection effort high (plan C) |
 | 20 checkpoints; Hex 40 / 40 / 32 games | 11 checkpoints with 8 / 12 / 4 games; one Haiku lineage with 21 checkpoints and 20 / 24 / 8 |
 | Native engine, 10k–1M nodes (train/ID), 10M (OOD) | Python engine, 3k–100k (train/ID), 1M (OOD) |
 | 10/11-ply openings | 4/5-ply openings from one pool, filtered (a weak player loses, a 30k-node engine wins) and dealt to splits by engine-scored difficulty |
@@ -311,7 +317,41 @@ What the summaries show (report 19; keyword codes checked by reading samples):
   them, on 66–70 %. The learned part sits in the code, and the model stops reasoning about
   the game once the code exists.
 
-### 3.9 Problems found in our own pipeline
+### 3.9 A third model: GLM 5.3 (plan C)
+
+Plan C ran GLM 5.3 (`z-ai/glm-5.3`, through OpenRouter's chat endpoint) with the settings of
+the high-effort Claude lineages, two lineages per game, checkpoints 0–10 (report 21).
+
+| Game | GLM checkpoint 0 | GLM 1–2 | GLM 3–10 | Sonnet 3–10 | Haiku 3–10 |
+|---|---|---|---|---|---|
+| Hex | 2/24 = 8 % | 13/48 = 27 % | 46/192 = 24 % | 83 % | 40 % |
+| Go | 5/40 = 12 % | 46/80 = 58 % | 147/320 = 46 % | 60 % | 47 % |
+
+Every Claude game at checkpoint 0 finished. GLM lost 32 of 48 Hex games and 29 of 64 Go
+games there to the limits (on Hex mostly tool calls past 240 s, on Go the 32-call budget).
+After the first reflection nearly all its games finished and held-out ID jumped; after that
+it did not improve (Hex 27 % → 24 %, p = 0.65; Go 58 % → 46 %, p = 0.064).
+
+The metric reads the jump as plasticity. Three of the four GLM lineages pass the flat-curve
+test (p = 0.008–0.031), against one of the eight Claude lineages at effort high, and the two
+Go lineages get P_sat of 48,000–60,000 points per $1,000 against 3,798 for the one Claude
+lineage that passes. `go_glm_reflect_high` gets 48,432 while ending at 25 %, below its
+checkpoint-1 score of 60 %. Learning cost at GLM's prices was only $5–7 per lineage.
+
+GLM reflected at the edge of its budget (39–49 of 50 calls, code revised at 8–9 of 10
+reflections). In `hex_glm_reflect_high` the first reflection after its jump rewrote the
+search tool with a corridor filter that dropped the shortest-path cells; held-out ID fell
+from 75 % to 0 %. Model-free replays of the saved tools reproduce the fall, and fixing that
+one line in the checkpoint-2 tool scores 12/12 (report 20). The next reflection found and
+fixed a different, real bug, called it the root cause, and never looked at the filter
+again. Later reflections built opponent models and added layers on top, back to 58 %; the
+final tool scores 7/12 in replay, with or without the fix.
+
+All four GLM lineages stopped when the API key reached its spending limit and were resumed
+with the unfinished checkpoint replayed ($0.29–1.86 per lineage discarded); GLM ran 2 games
+at a time per lineage, Claude 4.
+
+### 3.10 Problems found in our own pipeline
 
 - **Opening banks.** Banks drawn from a separate seed per split made held-out ID harder
   than train (Sonnet 8/8 train vs 2/12 ID, z ≈ 3.7). That run was stopped after one
@@ -332,7 +372,8 @@ What the summaries show (report 19; keyword codes checked by reading samples):
 
 - **Two small games.** 6×6 Hex and 5×5 Go only; no chess or NetHack. On 5×5 the GNU Go
   levels barely differ, so Go train/ID/OOD differ mostly by opening.
-- **Two models, one provider.** No cross-family comparison; OpenRouter routing was used.
+- **Few models.** Two Claude models and one GLM model, all through OpenRouter; GLM ran at
+  reflection effort high only and with half the concurrency.
 - **Small held-out sets.** 12 ID games per checkpoint on Hex (24 for `haiku_r20`), 20 on Go. Single Hex lineages do
   not pass the flat-curve test (p = 0.09–0.11 for the high-effort runs over checkpoints
   0–10); the effort result rests on pooling two lineages per condition.
@@ -384,6 +425,11 @@ What the summaries show (report 19; keyword codes checked by reading samples):
    than a single curve.
 9. Save thinking summaries with every transcript from the start; they cannot be recovered
    later.
+10. Check that the agent can finish its games at checkpoint 0. If it cannot, the first
+    reflection's fix for the limits dominates the fit; report the curve from checkpoint 1
+    as well (report 21).
+11. Replay saved tools without the model. It separates a tool that got worse from an actor
+    that used it badly, and a one-line patch can then test a suspected cause (report 20).
 
 ## 6. Reproducing this
 
@@ -396,6 +442,7 @@ brew install gnu-go          # for Go
 scripts/plan_a.sh            # the six reflection-effort-high lineages of report 15
 scripts/plan_b.sh            # extends every lineage to checkpoint 10
 uv run python scripts/compare_models.py
+uv run python scripts/compare_glm.py   # report 21 (plan C: scripts/plan_c.sh)
 uv run python scripts/ablate_inventory.py --yes --cap 8           # test 6, report 17
 uv run python scripts/run_hex.py --model anthropic/claude-sonnet-5.5 --rounds 7 \
     --train 8 --id 12 --ood 4 --workers 4 --reflect-effort high --no-feedback --cap 9 \
@@ -406,4 +453,4 @@ uv run python scripts/replay_thinking.py --dry                   # report 16: pl
 
 Total API spend for the whole project: $229.27 as of 2026-11-02 (all lineages, smoke runs,
 probes, tests 5 and 6, the thinking replay, plan B's extensions, and plan C's four GLM 5.3
-lineages, $48.05 billed, report 20). Reports 01–20 in `reports/` hold every number above.
+lineages, $48.05 billed, reports 20–21). Reports 01–21 in `reports/` hold every number above.
