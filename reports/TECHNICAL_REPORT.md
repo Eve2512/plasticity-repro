@@ -4,7 +4,7 @@ Independent, scaled-down reproduction of *Agent Plasticity: Measuring Self-Impro
 Through Experience* (Singh et al., arXiv:2610.08902, October 2026). The authors released
 no code; everything here was rebuilt from the paper's equations (Section 2) and appendix
 (Appendix B settings, Appendix I prompts). Data: the Hugging Face dataset
-`Eve39570/agent-plasticity-hex-go` (7,418 game transcripts on both games, 235 reflection logs, 1,377 replayed reflection turns, 144 ablation games, all also in the Hub's trace viewer).
+`Eve39570/agent-plasticity-hex-go` (8,474 game transcripts on both games, 276 reflection logs, 1,377 replayed reflection turns, 144 ablation games, all also in the Hub's trace viewer).
 
 ## Summary
 
@@ -15,7 +15,10 @@ no code; everything here was rebuilt from the paper's equations (Section 2) and 
   checkpoints 4–10, high ends at 83 % against 65 % for medium (z = 3.75, p = 0.0002),
   from an identical start. That z-test counts every game as independent, but later
   checkpoints largely replay the same 12 held-out games (section 3.12); counted per opening,
-  high effort is better on 10 and worse on 1 (sign test p = 0.012, permutation p = 0.066). This is a Hex result: on 5×5 Go, effort made no measurable
+  high effort is better on 10 and worse on 1 (sign test p = 0.012, permutation p = 0.066). Re-run with
+  held-out openings new at every checkpoint (plan D, section 3.13), the result holds with no game
+  replayed: high 72 % → 88 %, medium 57 % → 56 %, and late high is better on 46 of 84 openings and
+  worse on 6 (sign test p = 1e-08). This is a Hex result: on 5×5 Go, effort made no measurable
   difference for either model (Sonnet late 61 % at medium vs 60 % at high, p = 0.69).
 - **The failure mode at medium effort was shallow reflection, not missing reuse.** The
   agent ran its saved tool in most games, but each reflection used 4–6 of 50 calls,
@@ -44,7 +47,8 @@ no code; everything here was rebuilt from the paper's equations (Section 2) and 
   so once a tool stops changing, each checkpoint replays the last one's games: 64–70 % of
   the high-effort Hex Sonnet lineages' held-out games repeat an earlier game move for move.
   Every main result keeps its direction when openings are the unit, but most p-values grow
-  by orders of magnitude, and the Go model gaps are no longer below 0.05 (report 23).
+  by orders of magnitude, and the Go model gaps are no longer below 0.05 (report 23). With new
+  held-out openings at every checkpoint the Hex effort result and its learning curve hold (report 24).
 - **Learning showed up as testing, in the thinking.** Thinking summaries (replayed for old
   runs) show the lineages that learned playing new tool versions against the current one
   before installing them; Haiku never did, and one Go Sonnet lineage tested only against its
@@ -155,7 +159,7 @@ therefore the same condition for both: 15/24 each. Training scores reach 100 % f
 checkpoint 3 on for both high-effort lineages, and their held-out ID has not changed since
 checkpoint 3: they had saturated by then. The medium replicate `sonnet_medium_rep2` crept up
 late (75 % at checkpoints 8–10) without ever running a saved tool; its flat-curve test is
-p = 0.24.
+p = 0.24. Section 3.13 repeats this comparison with held-out openings new at every checkpoint.
 
 | Behaviour | medium | high |
 |---|---|---|
@@ -429,6 +433,30 @@ gaps do not. With 12 Hex openings no comparison can reach a sign-test p below 0.
 plasticity fits have the same problem: a replayed score is not a new measurement, so a
 flat tail makes a curve look saturated with more certainty than the data have.
 
+### 3.13 Fresh held-out openings (plan D)
+
+Plan D re-ran the four Hex Sonnet lineages of section 3.1 with one change: the 12 held-out ID
+openings are new at every checkpoint (132 in all, from the same contested pool, outside the
+pooled banks, dealt to checkpoints by difficulty). The four lineages play the same openings at a
+given checkpoint, so the two effort levels can be compared opening by opening, and no lineage
+plays a held-out opening twice (report 24).
+
+| Reflection effort | ID, checkpoints 0–3 | ID, checkpoints 4–10 | Early → late, openings as unit |
+|---|---|---|---|
+| medium | 55/96 = 57 % | 94/168 = 56 % | p = 0.91 |
+| high | 69/96 = 72 % | 147/168 = 88 % | p = 0.015 (pooled games p = 0.0015) |
+
+Over checkpoints 4–10 high effort is better on 46 of 84 openings and worse on 6 (sign test
+p = 1e-08, permutation p ≤ 1e-05). Checkpoint 0, played before any reflection, is 11/24 for
+both; the gap opens from the first reflection (checkpoints 0–3: 15 openings better, 2 worse,
+p = 0.0023). Both high-effort lineages pass the flat-curve test (p = 0.046 and 0.00059) and end
+at 12/12; neither medium lineage does. Medium effort again built little: one lineage never
+changed its code, the other wrote one tool its actor called in 66 % of games without a lasting
+gain. The fresh openings include more easy ones than the 12 original held-out openings (64 %
+against 50 % at the top difficulty score), so levels across the two plans are not strictly
+comparable; the comparisons inside plan D are. Plan D billed $44.94; a doubled start cost
+$2.27 more and was discarded (docs/PROTOCOL_NOTES.md).
+
 ## 4. Limitations
 
 - **Two small games.** 6×6 Hex and 5×5 Go only; no chess or NetHack. On 5×5 the GNU Go
@@ -437,7 +465,8 @@ flat tail makes a curve look saturated with more certainty than the data have.
   reflection effort high only and with half the concurrency.
 - **Small held-out sets, replayed.** 12 ID games per checkpoint on Hex (24 for `haiku_r20`), 20 on Go,
   the same openings at every checkpoint, so later checkpoints often replay earlier games
-  (section 3.12) and the effective sample is the 12 or 20 openings, not the games. Single Hex lineages do
+  (section 3.12) and the effective sample is the 12 or 20 openings, not the games. Only the Hex
+  Sonnet effort comparison was re-run with new openings at every checkpoint (section 3.13). Single Hex lineages do
   not pass the flat-curve test (p = 0.09–0.11 for the high-effort runs over checkpoints
   0–10); the effort result rests on pooling two lineages per condition.
 - **Two lineages per condition**, all with the same opening bank; no seeds varied beyond
@@ -497,7 +526,8 @@ flat tail makes a curve look saturated with more certainty than the data have.
     that used it badly, and a one-line patch can then test a suspected cause (report 20).
 12. Draw new held-out openings at each checkpoint, or use many more of them. With fixed
     openings and deterministic opponents a frozen tool replays the same games, and tests
-    must treat the opening, not the game, as the unit (report 23).
+    must treat the opening, not the game, as the unit (report 23). Plan D did this for the Hex
+    Sonnet effort comparison at about the cost of the original lineages (report 24).
 
 ## 6. Reproducing this
 
@@ -513,6 +543,9 @@ uv run python scripts/compare_models.py
 uv run python scripts/compare_glm.py   # report 21 (plan C: scripts/plan_c.sh)
 uv run python scripts/compare_go_effort.py   # report 22 (plan C)
 uv run python scripts/check_repeats.py   # report 23 (no API cost)
+uv run python scripts/build_hex_openings.py --kind fresh   # held-out ID openings per checkpoint
+scripts/plan_d.sh                                  # four Hex Sonnet lineages on fresh openings
+uv run python scripts/compare_fresh.py             # report 24
 uv run python scripts/ablate_inventory.py --yes --cap 8           # test 6, report 17
 uv run python scripts/run_hex.py --model anthropic/claude-sonnet-5.5 --rounds 7 \
     --train 8 --id 12 --ood 4 --workers 4 --reflect-effort high --no-feedback --cap 9 \
@@ -521,6 +554,7 @@ uv run python scripts/compare_feedback.py                        # report 18
 uv run python scripts/replay_thinking.py --dry                   # report 16: plan, then --yes
 ```
 
-Total API spend for the whole project: $229.27 as of 2026-11-02 (all lineages, smoke runs,
-probes, tests 5 and 6, the thinking replay, plan B's extensions, and plan C's four GLM 5.3
-lineages, $48.05 billed, reports 20–22). Reports 01–23 in `reports/` hold every number above.
+Total API spend for the whole project: $276.96 as of 2026-11-03 (all lineages, smoke runs,
+probes, tests 5 and 6, the thinking replay, plan B's extensions, plan C's four GLM 5.3
+lineages, $48.05 billed, reports 20–22, and plan D's four fresh-opening lineages, $44.94 billed
+plus $2.27 of a discarded doubled start, report 24). Reports 01–24 in `reports/` hold every number above.

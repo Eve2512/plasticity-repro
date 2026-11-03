@@ -16,6 +16,9 @@ published. Two kinds of bank are available here:
 - "pooled" (default): one pool of contested openings, scored for difficulty by
   engines only and dealt to the splits by colour and difficulty, so train and
   held-out ID are the same kind of game. Saved in POOLED_FILE.
+- "fresh": train and OOD as "pooled", but held-out ID openings are new at every
+  checkpoint, from the same pool and outside the pooled banks, so no held-out game
+  repeats (report 23). Saved in FRESH_FILE.
 """
 
 import json
@@ -41,6 +44,7 @@ SHORT_PLIES = {RED: 4, BLUE: 5}
 REFERENCE_NODES = 30_000  # the engine that must win a contested opening
 BANK_FILE = Path(__file__).resolve().parent.parent / "data" / "hex_openings_contested.json"
 POOLED_FILE = BANK_FILE.with_name("hex_openings_pooled.json")
+FRESH_FILE = BANK_FILE.with_name("hex_openings_fresh_id.json")
 DIFFICULTY_LEVELS = TRAIN_ID_LEVELS[:3]  # 3k, 10k, 30k: the reference's wins against these score an opening
 
 
@@ -133,6 +137,42 @@ def build_contested_banks(games: dict[str, int], plies=SHORT_PLIES, progress=Non
         "plies": plies,
         "rule": f"first-legal player loses and {REFERENCE_NODES:,}-node engine wins, "
                 f"vs the {TRAIN_ID_LEVELS[0]:,}-node opponent",
+        "candidates_tried": tried,
+        "banks": banks,
+    }
+
+
+def build_fresh_id_banks(checkpoints: int, per_checkpoint: int, exclude: set[str], plies=SHORT_PLIES,
+                         progress=None, workers: int = 1) -> dict:
+    """Held-out ID openings for each checkpoint, none in `exclude` and none used twice.
+
+    The same contested pool as build_pooled_banks; openings are sorted by difficulty
+    and dealt to the checkpoints in turn, so every checkpoint gets the same mix.
+    """
+    banks: dict[str, dict[str, list[dict]]] = {str(t): {RED: [], BLUE: []} for t in range(checkpoints)}
+    tried = 0
+    for actor in (RED, BLUE):
+        need = (per_checkpoint // 2 if actor == RED else per_checkpoint - per_checkpoint // 2) * checkpoints
+        pool = []
+        for opening, score in _scored_stream(actor, plies[actor], workers):
+            if len(pool) == need:
+                break
+            tried += 1
+            if score is not None and opening.key not in exclude:
+                pool.append((opening, score))
+                if progress:
+                    progress(actor, len(pool), need, tried)
+        rng = random.Random(f"fresh-{actor}")
+        pool.sort(key=lambda od: (od[1], rng.random()))
+        for t in range(checkpoints):
+            items = pool[t::checkpoints]
+            banks[str(t)][actor] = [
+                {"moves": list(items[p][0].moves), "difficulty": items[p][1]} for p in spread_order(len(items))
+            ]
+    return {
+        "version": 1,
+        "plies": plies,
+        "rule": f"as {POOLED_FILE.name}, excluding its openings; held-out ID only, new at every checkpoint",
         "candidates_tried": tried,
         "banks": banks,
     }
@@ -244,13 +284,24 @@ def build_pooled_banks(games: dict[str, int], plies=SHORT_PLIES, progress=None, 
     }
 
 
-def split_banks(games: dict[str, int], source: str = "pooled", bank_file: Path | None = None) -> dict[str, list[Opening]]:
+def split_banks(games: dict[str, int], source: str = "pooled", bank_file: Path | None = None,
+                checkpoint: int = 0) -> dict[str, list[Opening]]:
     """Openings per split, half the games for each colour (red first).
 
     `games` maps split name to games per checkpoint, e.g. the paper's
     {"train": 40, "id": 40, "ood": 32}. Sources: "pooled" (default), "contested"
-    (lineage A), "legacy" (smoke run).
+    (lineage A), "legacy" (smoke run), "fresh" (held-out ID new at each checkpoint).
     """
+    if source == "fresh":
+        out = split_banks({s: n for s, n in games.items() if s != "id"}, "pooled")
+        if "id" in games:
+            if not FRESH_FILE.exists():
+                raise FileNotFoundError(f"{FRESH_FILE} missing; run scripts/build_hex_openings.py --kind fresh")
+            stored = json.loads(FRESH_FILE.read_text())["banks"]
+            if str(checkpoint) not in stored:
+                raise ValueError(f"{FRESH_FILE.name} has no openings for checkpoint {checkpoint}")
+            out["id"] = _take(stored[str(checkpoint)], games["id"], f"{FRESH_FILE.name} checkpoint {checkpoint}")
+        return out
     if source == "legacy":
         used: set[str] = set()
         out = {}
@@ -267,14 +318,15 @@ def split_banks(games: dict[str, int], source: str = "pooled", bank_file: Path |
     if not bank_file.exists():
         raise FileNotFoundError(f"{bank_file} missing; run scripts/build_hex_openings.py --kind {source}")
     stored = json.loads(bank_file.read_text())["banks"]
-    out = {}
-    for split, n in games.items():
-        need = {RED: n // 2, BLUE: n - n // 2}
-        bank = []
-        for actor, count in need.items():
-            have = stored.get(split, {}).get(actor, [])
-            if len(have) < count:
-                raise ValueError(f"{bank_file.name} has {len(have)} {actor} openings for {split}, need {count}")
-            bank += [Opening(tuple(m["moves"] if isinstance(m, dict) else m), actor) for m in have[:count]]
-        out[split] = bank
-    return out
+    return {split: _take(stored.get(split, {}), n, f"{bank_file.name} {split}") for split, n in games.items()}
+
+
+def _take(stored: dict, n: int, where: str) -> list[Opening]:
+    """The first n openings of one stored bank, half per colour (red first)."""
+    bank = []
+    for actor, count in {RED: n // 2, BLUE: n - n // 2}.items():
+        have = stored.get(actor, [])
+        if len(have) < count:
+            raise ValueError(f"{where} has {len(have)} {actor} openings, need {count}")
+        bank += [Opening(tuple(m["moves"] if isinstance(m, dict) else m), actor) for m in have[:count]]
+    return bank

@@ -119,7 +119,7 @@ def main(argv):
     parser.add_argument("--train", type=int, default=8)
     parser.add_argument("--id", type=int, default=12)
     parser.add_argument("--ood", type=int, default=4)
-    parser.add_argument("--openings", default="pooled", choices=["pooled", "contested", "legacy"],
+    parser.add_argument("--openings", default="pooled", choices=["pooled", "contested", "legacy", "fresh"],
                         help="Go has only pooled openings")
     parser.add_argument("--cap", type=float, default=17.00)
     parser.add_argument("--name", default="lineage_a")

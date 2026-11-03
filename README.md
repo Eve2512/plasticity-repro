@@ -56,11 +56,16 @@ Full write-up with methods and limitations: [reports/TECHNICAL_REPORT.md](report
 | `go_haiku_reflect_high`, `..._rep2` (Go) | Haiku 5.5 | high | 55 % → 47 % (no plasticity) | [15](reports/15_model_game_comparison.md) |
 | `go_sonnet_medium`, `..._rep2` (Go) | Sonnet 5.5 | medium | 60 % → 61 % (no plasticity) | [22](reports/22_go_effort.md) |
 | `go_haiku_medium`, `..._rep2` (Go) | Haiku 5.5 | medium | 47 % → 52 % (p = 0.36) | [22](reports/22_go_effort.md) |
+| `hex_sonnet_high_fresh`, `..._rep2` (new held-out openings each checkpoint) | Sonnet 5.5 | high | 72 % → **88 %** (p = 0.015 per opening) | [24](reports/24_fresh_openings.md) |
+| `hex_sonnet_medium_fresh`, `..._rep2` (as above) | Sonnet 5.5 | medium | 57 % → 56 % (p = 0.91 per opening) | [24](reports/24_fresh_openings.md) |
 
 With two lineages per condition, high-effort reflection ends at 83 % held-out ID against
 65 % for medium over checkpoints 4–10 (z = 3.75, p = 0.0002), from the same starting point; counted
 per opening, since later checkpoints replay the same held-out games, high effort is better on 10 of 12
-openings and worse on 1 (sign test p = 0.012, [report 23](reports/23_repeated_games.md)). At medium effort the
+openings and worse on 1 (sign test p = 0.012, [report 23](reports/23_repeated_games.md)). Re-run with
+held-out openings new at every checkpoint, so no held-out game repeats, high effort is better on 46 of 84
+openings and worse on 6 over checkpoints 4–10 (sign test p = 1e-08, [report 24](reports/24_fresh_openings.md)),
+and its early → late gain holds on openings it had never played. At medium effort the
 reflector rarely read its game logs and wrote at most one version of a tool; at high effort it revised
 its code and the actor used it in most games. Phase 1 (reports 01–04) found that a single
 lineage's P_sat is noisy and that the paper's 10-point rule alone lets false rises

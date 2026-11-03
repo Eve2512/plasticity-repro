@@ -117,3 +117,17 @@ again replays the unfinished checkpoint. Games ran 2 at a time per GLM lineage t
 - Which program adjudicates dead stones in Go.
 - Price tables used for cost ("fixed undiscounted input/output prices").
 - The structural validator beyond "persistent tool load" smoke checks.
+
+## Plan D: fresh held-out openings (2026-11-03)
+
+The paper's banks are fixed (Appendix B), and so were ours: every checkpoint played the same
+held-out ID openings, and with deterministic opponents a frozen tool replays the same games
+(report 23). Plan D (scripts/plan_d.sh, report 24) re-ran the four Hex Sonnet lineages with
+`--openings fresh`: training and OOD openings are the pooled banks, held-out ID openings come
+from data/hex_openings_fresh_id.json, 12 per checkpoint for checkpoints 0–10, none in the pooled
+banks and none used twice, dealt to checkpoints by difficulty. The four lineages share the
+openings of a checkpoint. New runs record thinking summaries; the original lineages did not.
+
+Plan D was started twice by mistake, 24 seconds apart, into the same run folders. Both copies
+were stopped after about 2.5 minutes, at checkpoint 0, and their folders set aside; one copy was
+then started from scratch. The $2.27 the doubled start billed is not in the results.

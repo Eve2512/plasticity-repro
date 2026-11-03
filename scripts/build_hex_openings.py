@@ -5,23 +5,32 @@ half per colour. Runs read the saved file, so every run uses the same openings.
 
     uv run python scripts/build_hex_openings.py              # pooled (default)
     uv run python scripts/build_hex_openings.py --kind contested
+    uv run python scripts/build_hex_openings.py --kind fresh    # held-out ID, new at each of checkpoints 0-10
 """
 
 import argparse
 import json
 
-from envs.hex_openings import BANK_FILE, POOLED_FILE, build_contested_banks, build_pooled_banks
+from envs.hex_openings import (BANK_FILE, FRESH_FILE, POOLED_FILE, build_contested_banks, build_fresh_id_banks,
+                               build_pooled_banks)
 
 GAMES = {"train": 40, "id": 40, "ood": 32}
+FRESH = {"checkpoints": 11, "per_checkpoint": 12}  # the 12 held-out ID games of the Hex lineages
 
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument("--kind", default="pooled", choices=["pooled", "contested"])
+    parser.add_argument("--kind", default="pooled", choices=["pooled", "contested", "fresh"])
     kind = parser.parse_args().kind
     if kind == "pooled":
         data = build_pooled_banks(GAMES, workers=7, progress=lambda a, k, n, t: print(f"{a}: {k}/{n} kept ({t} tried)", flush=True))
         path = POOLED_FILE
+    elif kind == "fresh":
+        pooled = json.loads(POOLED_FILE.read_text())["banks"]
+        exclude = {" ".join(m["moves"]) for split in pooled.values() for side in split.values() for m in side}
+        data = build_fresh_id_banks(**FRESH, exclude=exclude, workers=7,
+                                    progress=lambda a, k, n, t: print(f"{a}: {k}/{n} kept ({t} tried)", flush=True))
+        path = FRESH_FILE
     else:
         data = build_contested_banks(
             GAMES, progress=lambda s, a, k, n, t: print(f"{s} {a}: {k}/{n} kept ({t} tried)", flush=True))
