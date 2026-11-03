@@ -54,6 +54,8 @@ Full write-up with methods and limitations: [reports/TECHNICAL_REPORT.md](report
 | `hex_haiku_reflect_high`, `..._rep2` | Haiku 5.5 | high | 44 % → 40 % (no plasticity) | [15](reports/15_model_game_comparison.md) |
 | `go_sonnet_reflect_high`, `..._rep2` (Go) | Sonnet 5.5 | high | 57 % → 60 % (p = 0.57; one lineage 75 % → 90 %) | [15](reports/15_model_game_comparison.md) |
 | `go_haiku_reflect_high`, `..._rep2` (Go) | Haiku 5.5 | high | 55 % → 47 % (no plasticity) | [15](reports/15_model_game_comparison.md) |
+| `go_sonnet_medium`, `..._rep2` (Go) | Sonnet 5.5 | medium | 60 % → 61 % (no plasticity) | [22](reports/22_go_effort.md) |
+| `go_haiku_medium`, `..._rep2` (Go) | Haiku 5.5 | medium | 47 % → 52 % (p = 0.36) | [22](reports/22_go_effort.md) |
 
 With two lineages per condition, high-effort reflection ends at 83 % held-out ID against
 65 % for medium over checkpoints 4–10 (z = 3.75, p = 0.0002), from the same starting point. At medium effort the
@@ -71,6 +73,8 @@ Go Sonnet lineages diverge: one reaches 90 % and passes the per-lineage flat-cur
 search, and sat at 15 % for checkpoints 7–9 before ending at 50 %. How agents adapt to their
 limits differs too: Sonnet moved play into a saved tool once games ran into the 32-call
 budget, while Haiku used more calls per game over time and kept submitting illegal Go moves.
+The effort result is a Hex result: on Go, late held-out ID is 61 % at medium and 60 % at high
+for Sonnet (p = 0.69), and 52 % and 47 % for Haiku ([report 22](reports/22_go_effort.md)).
 
 GLM 5.3 on Hex (plan C) shows a different way to fail: one reflection rewrote its search
 tool with a one-line bug, held-out ID fell from 75 % to 0 %, and the next reflection fixed a
