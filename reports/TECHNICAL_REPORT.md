@@ -13,7 +13,9 @@ no code; everything here was rebuilt from the paper's equations (Section 2) and 
   `medium` gave no clear held-out gain in two lineages (59 % → 65 %, p = 0.32), while
   reflection at effort `high` gave a gain in two lineages (73 % → 83 %, p = 0.04). Over
   checkpoints 4–10, high ends at 83 % against 65 % for medium (z = 3.75, p = 0.0002),
-  from an identical start. This is a Hex result: on 5×5 Go, effort made no measurable
+  from an identical start. That z-test counts every game as independent, but later
+  checkpoints largely replay the same 12 held-out games (section 3.12); counted per opening,
+  high effort is better on 10 and worse on 1 (sign test p = 0.012, permutation p = 0.066). This is a Hex result: on 5×5 Go, effort made no measurable
   difference for either model (Sonnet late 61 % at medium vs 60 % at high, p = 0.69).
 - **The failure mode at medium effort was shallow reflection, not missing reuse.** The
   agent ran its saved tool in most games, but each reflection used 4–6 of 50 calls,
@@ -36,7 +38,13 @@ no code; everything here was rebuilt from the paper's equations (Section 2) and 
   the final inventory of the two high-effort Hex Sonnet lineages drops held-out ID from
   92 % to 50–54 % (test 6). Reflection without game records built no tools at all; on the
   same held-out openings, the feedback lineages won 38 games the no-feedback control lost
-  and lost 5 it won from checkpoint 3 on (p = 2.5e-07, test 5).
+  and lost 5 it won from checkpoint 3 on (test 5); per opening, 8 better and 1 worse
+  (p = 0.039).
+- **Flat scores are replays.** Held-out openings are fixed and the opponents deterministic,
+  so once a tool stops changing, each checkpoint replays the last one's games: 64–70 % of
+  the high-effort Hex Sonnet lineages' held-out games repeat an earlier game move for move.
+  Every main result keeps its direction when openings are the unit, but most p-values grow
+  by orders of magnitude, and the Go model gaps are no longer below 0.05 (report 23).
 - **Learning showed up as testing, in the thinking.** Thinking summaries (replayed for old
   runs) show the lineages that learned playing new tool versions against the current one
   before installing them; Haiku never did, and one Go Sonnet lineage tested only against its
@@ -140,7 +148,8 @@ On 5×5 Go (20 held-out ID games per checkpoint, report 15):
 | medium | 57/96 = 59 % | 110/168 = 65 % | z = 0.99, p = 0.32 |
 | high | 70/96 = 73 % | 140/168 = 83 % | z = 2.02, p = 0.04 |
 
-High against medium over checkpoints 4–10: 83 % vs 65 %, z = 3.75, p = 0.0002 (over 4–7,
+High against medium over checkpoints 4–10: 83 % vs 65 %, z = 3.75, p = 0.0002; per opening
+10 better, 1 worse, sign test p = 0.012 (section 3.12) (over 4–7,
 before plan B: 83 % vs 62 %, p = 0.001). Checkpoint 0 is played before any reflection and is
 therefore the same condition for both: 15/24 each. Training scores reach 100 % from
 checkpoint 3 on for both high-effort lineages, and their held-out ID has not changed since
@@ -274,7 +283,9 @@ checkpoint, so the arms can be compared game by game:
 | Sign test p | 0.81 | 2.5e-07 |
 
 The paired test is far stronger than either lineage's own flat-curve test (p = 0.12–0.13
-over checkpoints 0–7). The controls stop at checkpoint 7, so the comparison does too.
+over checkpoints 0–7), but it counts each opening once per checkpoint, and the same games
+repeat across checkpoints (section 3.12). Per opening over checkpoints 3–7, feedback is
+better on 8 and worse on 1 (sign test p = 0.039, permutation p = 0.035). The controls stop at checkpoint 7, so the comparison does too.
 It controls for openings and opponents but not for time: the control ran three days later
 (2026-10-28/29 vs 2026-10-25). At checkpoint 0 the arms are level (15 vs 15 wins).
 
@@ -389,13 +400,44 @@ change, but its two lineages split (one at 85–90 %, the other at 15–20 % for
   the $0.041 probe, because the actor made more calls; both Go Sonnet lineages ran close to
   or into their caps.
 
+### 3.12 Repeated held-out games
+
+Several lineages hold one held-out score for many checkpoints (`sonnet_reflect_high_rep2`
+at 92 % for checkpoints 2–10). Every checkpoint plays the same held-out openings, each
+against the same opponent level, and neither opponent ever answered a held-out position two
+ways (17,048 repeated positions). Once the actor's play stops changing, the games repeat:
+`sonnet_reflect_high` kept the same tool code from checkpoint 3 on, and 82 of 84 held-out
+games at checkpoints 4–10 match the checkpoint before move for move. Over all checkpoints,
+15–70 % of a lineage's held-out games repeat an earlier one exactly (report 23), including
+42 % for Go Sonnet at medium effort, which rarely ran a tool.
+
+So the pooled z-tests of reports 12, 15, 21 and 22 overstate the evidence. With each
+(opening, colour) as one unit:
+
+| Comparison | Pooled p | Per opening: better / worse | Sign p | Permutation p |
+|---|---|---|---|---|
+| Hex Sonnet, high vs medium, checkpoints 4–10 | 0.00018 | 10 / 1 | 0.012 | 0.066 |
+| Hex Sonnet high, 0–3 → 4–10 | 0.044 | 9 / 1 | 0.021 | 0.051 |
+| Hex, feedback vs none, 3–7 | 3.7e-06 | 8 / 1 | 0.039 | 0.035 |
+| Hex late, Sonnet vs Haiku | 2.9e-18 | 10 / 1 | 0.012 | 0.0029 |
+| Hex late, Sonnet vs GLM | 1.9e-31 | 11 / 0 | 0.00098 | 0.00098 |
+| Go late, Sonnet vs Haiku | 0.0012 | 13 / 5 | 0.096 | 0.089 |
+| Go late, Sonnet vs GLM | 0.00049 | 11 / 6 | 0.33 | 0.059 |
+
+Every direction holds; the Hex results stay below 0.05 on at least one test, the Go model
+gaps do not. With 12 Hex openings no comparison can reach a sign-test p below 0.0005. The
+plasticity fits have the same problem: a replayed score is not a new measurement, so a
+flat tail makes a curve look saturated with more certainty than the data have.
+
 ## 4. Limitations
 
 - **Two small games.** 6×6 Hex and 5×5 Go only; no chess or NetHack. On 5×5 the GNU Go
   levels barely differ, so Go train/ID/OOD differ mostly by opening.
 - **Few models.** Two Claude models and one GLM model, all through OpenRouter; GLM ran at
   reflection effort high only and with half the concurrency.
-- **Small held-out sets.** 12 ID games per checkpoint on Hex (24 for `haiku_r20`), 20 on Go. Single Hex lineages do
+- **Small held-out sets, replayed.** 12 ID games per checkpoint on Hex (24 for `haiku_r20`), 20 on Go,
+  the same openings at every checkpoint, so later checkpoints often replay earlier games
+  (section 3.12) and the effective sample is the 12 or 20 openings, not the games. Single Hex lineages do
   not pass the flat-curve test (p = 0.09–0.11 for the high-effort runs over checkpoints
   0–10); the effort result rests on pooling two lineages per condition.
 - **Two lineages per condition**, all with the same opening bank; no seeds varied beyond
@@ -453,6 +495,9 @@ change, but its two lineages split (one at 85–90 %, the other at 15–20 % for
     as well (report 21).
 11. Replay saved tools without the model. It separates a tool that got worse from an actor
     that used it badly, and a one-line patch can then test a suspected cause (report 20).
+12. Draw new held-out openings at each checkpoint, or use many more of them. With fixed
+    openings and deterministic opponents a frozen tool replays the same games, and tests
+    must treat the opening, not the game, as the unit (report 23).
 
 ## 6. Reproducing this
 
@@ -467,6 +512,7 @@ scripts/plan_b.sh            # extends every lineage to checkpoint 10
 uv run python scripts/compare_models.py
 uv run python scripts/compare_glm.py   # report 21 (plan C: scripts/plan_c.sh)
 uv run python scripts/compare_go_effort.py   # report 22 (plan C)
+uv run python scripts/check_repeats.py   # report 23 (no API cost)
 uv run python scripts/ablate_inventory.py --yes --cap 8           # test 6, report 17
 uv run python scripts/run_hex.py --model anthropic/claude-sonnet-5.5 --rounds 7 \
     --train 8 --id 12 --ood 4 --workers 4 --reflect-effort high --no-feedback --cap 9 \
@@ -477,4 +523,4 @@ uv run python scripts/replay_thinking.py --dry                   # report 16: pl
 
 Total API spend for the whole project: $229.27 as of 2026-11-02 (all lineages, smoke runs,
 probes, tests 5 and 6, the thinking replay, plan B's extensions, and plan C's four GLM 5.3
-lineages, $48.05 billed, reports 20–22). Reports 01–22 in `reports/` hold every number above.
+lineages, $48.05 billed, reports 20–22). Reports 01–23 in `reports/` hold every number above.

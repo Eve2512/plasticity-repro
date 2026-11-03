@@ -58,7 +58,9 @@ Full write-up with methods and limitations: [reports/TECHNICAL_REPORT.md](report
 | `go_haiku_medium`, `..._rep2` (Go) | Haiku 5.5 | medium | 47 % → 52 % (p = 0.36) | [22](reports/22_go_effort.md) |
 
 With two lineages per condition, high-effort reflection ends at 83 % held-out ID against
-65 % for medium over checkpoints 4–10 (z = 3.75, p = 0.0002), from the same starting point. At medium effort the
+65 % for medium over checkpoints 4–10 (z = 3.75, p = 0.0002), from the same starting point; counted
+per opening, since later checkpoints replay the same held-out games, high effort is better on 10 of 12
+openings and worse on 1 (sign test p = 0.012, [report 23](reports/23_repeated_games.md)). At medium effort the
 reflector rarely read its game logs and wrote at most one version of a tool; at high effort it revised
 its code and the actor used it in most games. Phase 1 (reports 01–04) found that a single
 lineage's P_sat is noisy and that the paper's 10-point rule alone lets false rises
@@ -91,7 +93,7 @@ Limitation tests 5 and 6 (Hex, Sonnet, reflection effort high):
 |---|---|---|
 | 6: remove the final inventory | held-out ID 92 % / 92 % with tools, 54 % / 50 % without; forcing tool use adds nothing | [17](reports/17_artifact_ablation.md) |
 | 5: reflection without game records | the reflector builds no tools (4 of 50 calls per round); held-out ID stays at 62 % pooled | [18](reports/18_experience_vs_compute.md) |
-| 5: same openings, feedback vs none | level at checkpoints 0–2; from checkpoint 3 on, 38 games won only with feedback, 5 only without (p = 2.5e-07) | [18](reports/18_experience_vs_compute.md) |
+| 5: same openings, feedback vs none | level at checkpoints 0–2; from checkpoint 3 on, 38 games won only with feedback, 5 only without (p = 2.5e-07); per opening 8 better, 1 worse (p = 0.039, report 23) | [18](reports/18_experience_vs_compute.md) |
 
 The gain lives in the saved tools, and the tools come from the game records. Without records the
 reflector chose not to spend its budget, so test 5 does not isolate extra reflection compute. The
