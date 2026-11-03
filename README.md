@@ -26,7 +26,7 @@ paper's equations (Section 2) and appendix (Appendix B settings, Appendix I prom
 | Metrics (Eq. 2–5, bootstrap) | yes | **phase 1 done**, no API cost |
 | Harness (sandbox, reflection, validator, ledger) | not released | **phase 2: built, dry-run tested and run on Hex and 5×5 Go** |
 | Games | Chess, 5×5 Go, 6×6 Hex, NetHack | 6×6 Hex and 5×5 Go (GNU Go opponent, calibration in report 13) |
-| Models | 8 frontier models | Sonnet 5.5 and Haiku 5.5; GLM 5.3 in plan C ([report 20](reports/20_glm_tool_rewrite.md)); Opus 5.5 probed only |
+| Models | 8 frontier models | Sonnet 5.5 and Haiku 5.5; GLM 5.3 in plan C (reports [20](reports/20_glm_tool_rewrite.md), [21](reports/21_glm_vs_claude.md)); Opus 5.5 probed only |
 | Checkpoints | 20 (NetHack 40) | 11 (checkpoints 0–10); one Haiku lineage 21 |
 | Learning cost per lineage | about $1,000–3,000 (chess) | measured on a smoke run first |
 
@@ -75,6 +75,11 @@ budget, while Haiku used more calls per game over time and kept submitting illeg
 GLM 5.3 on Hex (plan C) shows a different way to fail: one reflection rewrote its search
 tool with a one-line bug, held-out ID fell from 75 % to 0 %, and the next reflection fixed a
 different bug it took for the cause ([report 20](reports/20_glm_tool_rewrite.md)).
+Against Claude ([report 21](reports/21_glm_vs_claude.md)), GLM lost most of its checkpoint-0
+games to the time and call limits and fixed that in one reflection. That jump alone passes
+the flat-curve test in three of its four lineages and gives its Go lineages P_sat of
+48,000–60,000, the highest in the project, although its held-out ID after checkpoint 1 is
+flat or falling (late: Hex 24 %, Go 46 %, against Sonnet's 83 % and 60 %).
 
 Limitation tests 5 and 6 (Hex, Sonnet, reflection effort high):
 
