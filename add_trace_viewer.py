@@ -1,49 +1,35 @@
 """
-Add a `trace_viewer` config to Eve39570/agent-plasticity-hex-go.
+Write the `trace_viewer` configs of Eve39570/agent-plasticity-hex-go into the local export.
 
 Each transcript is written in Pi's session format (version 3), which the Hub's trace
-viewer reads natively. Games are kept only if they carry thinking (the other game
-transcripts are in the `games` config): with all 3,918 files the Hub's conversion timed
-out twice. The Hub's own Session Trace format was tried first; the viewer
-parsed it as Pi and dropped every assistant turn. Timestamps are placeholders (one
-second per message): the harness did not record times.
+viewer reads natively: every reflection, every ablation game and every game. The Hub's
+conversion timed out twice on one config of 3,918 files, so games get one config per run
+(`traces_<run_id>`, at most 1,092 files) and reflections and ablation games share
+`trace_viewer`. The Hub's own Session Trace format was tried first; the viewer parsed it
+as Pi and dropped every assistant turn. Timestamps are placeholders (one second per
+message): the harness did not record times.
 
-Dry run (writes and checks the files on your Mac, uploads nothing):
-    uv run --with huggingface_hub python add_trace_viewer.py
+Reads export/agent-plasticity-hex-go/data/ and writes export/agent-plasticity-hex-go/traces/,
+so run it after scripts/export_hf.py. Nothing is uploaded; `hf upload` of the export folder
+sends the traces with the data and the card (scripts/hf_dataset_card.md lists the configs).
 
-Push (also uploads the files and updates the dataset card):
-    uv run --with huggingface_hub python add_trace_viewer.py --push
+    uv run python add_trace_viewer.py
 """
 
 # ---------------------------------------------------------------- 1. Imports
-import argparse
-import fnmatch
 import json
 import shutil
 import sys
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
-from huggingface_hub import DatasetCard, HfApi, hf_hub_download
 
 # ---------------------------------------------------------------- 2. Settings
-REPO = "Eve39570/agent-plasticity-hex-go"
 HARNESS = "agent-plasticity-hex-go"
-OUT = Path("traces")
-CONFIG = {
-    "config_name": "trace_viewer",
-    "data_files": [
-        {
-            "split": "train",
-            "path": ["traces/games/*.jsonl", "traces/reflections/*.jsonl", "traces/ablation/*.jsonl"],
-        }
-    ],
-}
+EXPORT = Path(__file__).resolve().parent / "export" / "agent-plasticity-hex-go"
+DATA = EXPORT / "data"
+OUT = EXPORT / "traces"
 TRANSCRIPT_COLUMNS = ["messages", "transcript", "conversation"]
-TABLE_ROW = (
-    "| `trace_viewer` | {n} | a reflection, ablation game or game with thinking, as a transcript in "
-    "Pi's session format with thinking summaries (live, or replayed and labelled), for the trace viewer |"
-)
 REPLAYED = ("[Replayed thinking summary: the same input was sent again with thinking on; "
             "a new sample, not what this run thought.]\n\n")
 KINDS = (("game", "games", "games"), ("reflection", "reflections", "reflections"),
@@ -89,7 +75,7 @@ def as_args(arguments):
 
 
 # ---------------------------------------------------------------- 4. Convert one transcript
-def convert(messages, model):
+def convert(messages, model, api):
     """Convert one transcript (chat shape) to Pi session entries."""
     lines = []
     names = {}  # tool call id -> tool name, for the results
@@ -102,7 +88,7 @@ def convert(messages, model):
 
         if role == "assistant":
             content = []
-            if m.get("thinking"):  # a thinking summary, not the raw chain of thought
+            if m.get("thinking"):  # Claude: a summary; GLM: the reasoning text OpenRouter returned
                 content.append({"type": "thinking", "thinking": m["thinking"]})
             if as_text(m.get("content")):
                 content.append({"type": "text", "text": as_text(m.get("content"))})
@@ -114,7 +100,7 @@ def convert(messages, model):
                 names[call_id] = fn.get("name") or ""
                 content.append({"type": "toolCall", "id": call_id, "name": names[call_id],
                                 "arguments": as_args(fn.get("arguments"))})
-            msg = {"role": "assistant", "content": content, "api": "anthropic-messages", "provider": "openrouter",
+            msg = {"role": "assistant", "content": content, "api": api, "provider": "openrouter",
                    "model": model, "usage": NO_USAGE, "stopReason": "toolUse" if calls else "stop", "timestamp": ms}
         elif role == "tool":
             call_id = m.get("tool_call_id") or ""
@@ -129,49 +115,13 @@ def convert(messages, model):
 
 
 # ---------------------------------------------------------------- 5. Names, writing, checking
-def data_file_patterns(config):
-    """Return the file patterns from one config's data_files, in any YAML shape."""
-    df = config.get("data_files")
-    items = df if isinstance(df, list) else list(df.values()) if isinstance(df, dict) else [df]
-    patterns = []
-    for item in items:
-        if isinstance(item, dict):
-            item = item.get("path")
-        if isinstance(item, str):
-            patterns.append(item)
-        elif isinstance(item, list):
-            patterns.extend(item)
-    return patterns
-
-
 def load_rows(config_name):
-    """Download the raw JSON files of one config and return its rows as dicts.
-    This skips the schema in the dataset card, so a wrong type there cannot stop us."""
-    card = DatasetCard.load(REPO)
-    config = next(
-        (c for c in (card.data.get("configs") or []) if c.get("config_name") == config_name),
-        None,
-    )
-    if config is None:
-        sys.exit(f"No config named '{config_name}' in the dataset card.")
-    patterns = data_file_patterns(config)
-    all_files = HfApi().list_repo_files(REPO, repo_type="dataset")
-    files = sorted(f for f in all_files if any(fnmatch.fnmatch(f, p) for p in patterns))
-    if not files:
-        sys.exit(f"No files match {patterns} for config '{config_name}'.")
-
-    rows = []
-    for name in files:
-        local = hf_hub_download(REPO, name, repo_type="dataset")
-        text = Path(local).read_text(encoding="utf-8")
-        if name.endswith(".jsonl"):
-            rows.extend(json.loads(line) for line in text.splitlines() if line.strip())
-        elif name.endswith(".json"):
-            data = json.loads(text)
-            rows.extend(data if isinstance(data, list) else [data])
-        else:
-            print(f"Skipped {name}: not .json or .jsonl")
-    print(f"{config_name}: {len(rows)} rows from {len(files)} file(s)")
+    """Return the rows of one table of the local export."""
+    path = DATA / f"{config_name}.jsonl"
+    if not path.exists():
+        sys.exit(f"No {path}: run scripts/export_hf.py first.")
+    rows = [json.loads(line) for line in path.read_text(encoding="utf-8").splitlines() if line.strip()]
+    print(f"{config_name}: {len(rows)} rows")
     return rows
 
 
@@ -216,7 +166,8 @@ def make_header(sid, name, model, kind):
 def write_session(path, header, messages):
     with open(path, "w", encoding="utf-8") as f:
         f.write(json.dumps(header, ensure_ascii=False) + "\n")
-        for line in convert(messages, header["model"]):
+        api = "openai-completions" if header["model"].startswith("z-ai/") else "anthropic-messages"
+        for line in convert(messages, header["model"], api):
             f.write(json.dumps(line, ensure_ascii=False) + "\n")
 
 
@@ -243,13 +194,10 @@ def check(path):
 
 # ---------------------------------------------------------------- 6. Main procedure
 def main():
-    parser = argparse.ArgumentParser()
-    parser.add_argument("--push", action="store_true", help="upload files and update the card")
-    args = parser.parse_args()
-
-    # 6a. Load the tables that hold transcripts
+    # 6a. Load the tables that hold transcripts, and each run's model
     tables = {config: load_rows(config) for _, config, _ in KINDS}
     columns = {config: find_column(rows, config) for config, rows in tables.items()}
+    models = {r["run_id"]: r["model"] for r in load_rows("runs")}
 
     # 6a2. Reflections recorded before thinking was saved: attach the replayed summaries, labelled
     replay = {(r["run_id"], r["checkpoint"], r["attempt"], r["message_index"]): r["thinking"]
@@ -262,68 +210,27 @@ def main():
                 m["thinking"] = REPLAYED + replay[key]
         row[columns["reflections"]] = messages
 
-    # 6b. Show the keys of the first messages, so you can check the shape
-    print("Keys in the first 3 messages of game 0:")
-    for m in as_list(tables["games"][0][columns["games"]])[:3]:
-        print("   ", sorted(k for k, v in m.items() if v is not None))
-
-    # 6c. Start with an empty output folder
+    # 6b. Start with an empty output folder
     if OUT.exists():
         shutil.rmtree(OUT)
 
-    # 6d. Write one file per reflection, ablation game and game with thinking
+    # 6c. Write one file per reflection, ablation game and game; games in one folder per run
     for kind, config, folder_name in KINDS:
-        folder = OUT / folder_name
-        folder.mkdir(parents=True)
         for i, row in enumerate(tables[config]):
-            if kind == "game" and not any(m.get("thinking") for m in as_list(row[columns[config]])):
-                continue
-            sid = session_id(row, i, kind)
             run = str(row.get("run_id") or "")
-            model = "claude-haiku-5.5" if "haiku" in run else "claude-sonnet-5.5"
-            header = make_header(sid, session_name(row, kind), model, kind)
+            folder = OUT / folder_name / run if kind == "game" else OUT / folder_name
+            folder.mkdir(parents=True, exist_ok=True)
+            sid = session_id(row, i, kind)
+            header = make_header(sid, session_name(row, kind), models[run], kind)
             write_session(folder / f"{sid}.jsonl", header, as_list(row[columns[config]]))
 
-    # 6e. Check every file
+    # 6d. Check every file
     files = sorted(OUT.rglob("*.jsonl"))
     total = sum(check(p) for p in files)
     thinking = sum('"type": "thinking"' in p.read_text(encoding="utf-8") for p in files)
     print(f"OK: {len(files)} files, {total} messages, all pass the Pi format checks; {thinking} files carry thinking.")
-
-    if not args.push:
-        print("Dry run. Open one file in traces/ and look at it. Then run again with --push.")
-        return
-
-    # 6f. Upload the files; old trace files that are not in OUT any more are deleted
-    HfApi().upload_folder(
-        folder_path=str(OUT),
-        path_in_repo="traces",
-        repo_id=REPO,
-        repo_type="dataset",
-        delete_patterns=["*"],
-        commit_message="Keep only traces with thinking, reflections and ablation games in trace_viewer",
-    )
-
-    # 6g. Add the config, the tag and a table row to the dataset card
-    card = DatasetCard.load(REPO)
-    configs = [c for c in (card.data.get("configs") or []) if c.get("config_name") != "trace_viewer"]
-    configs.append(CONFIG)
-    card.data.configs = configs
-
-    tags = list(card.data.get("tags") or [])
-    if "agent-traces" not in tags:
-        tags.append("agent-traces")
-    card.data.tags = tags
-
-    lines = [x for x in card.text.split("\n") if not x.startswith("| `trace_viewer`")]
-    for n, line in enumerate(lines):
-        if line.startswith("| `ablation_games`"):
-            lines.insert(n + 1, TABLE_ROW.format(n=f"{len(files):,}"))
-            break
-    card.text = "\n".join(lines)
-
-    card.push_to_hub(REPO, commit_message="Add trace_viewer config and agent-traces tag")
-    print("Pushed. Open Data Studio, select trace_viewer, and click a row.")
+    for folder in sorted((OUT / "games").iterdir()):
+        print(f"  traces_{folder.name}: {len(list(folder.glob('*.jsonl')))} games")
 
 
 if __name__ == "__main__":
