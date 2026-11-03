@@ -13,7 +13,8 @@ no code; everything here was rebuilt from the paper's equations (Section 2) and 
   `medium` gave no clear held-out gain in two lineages (59 % → 65 %, p = 0.32), while
   reflection at effort `high` gave a gain in two lineages (73 % → 83 %, p = 0.04). Over
   checkpoints 4–10, high ends at 83 % against 65 % for medium (z = 3.75, p = 0.0002),
-  from an identical start.
+  from an identical start. This is a Hex result: on 5×5 Go, effort made no measurable
+  difference for either model (Sonnet late 61 % at medium vs 60 % at high, p = 0.69).
 - **The failure mode at medium effort was shallow reflection, not missing reuse.** The
   agent ran its saved tool in most games, but each reflection used 4–6 of 50 calls,
   rarely opened the per-move diagnostics it was given, and never improved the tool.
@@ -351,7 +352,27 @@ All four GLM lineages stopped when the API key reached its spending limit and we
 with the unfinished checkpoint replayed ($0.29–1.86 per lineage discarded); GLM ran 2 games
 at a time per lineage, Claude 4.
 
-### 3.10 Problems found in our own pipeline
+### 3.10 Reflection effort on Go (plan C)
+
+Plan C ran two Go lineages per Claude model at reflection effort medium, otherwise as the
+high-effort Go lineages (report 22).
+
+| Model | Effort | Checkpoint 0 | Early (0–2) | Late (3–10) | Late, high vs medium |
+|---|---|---|---|---|---|
+| Sonnet 5.5 | medium | 60 % | 60 % | 61 % | |
+| Sonnet 5.5 | high | 65 % | 57 % | 60 % | p = 0.69 |
+| Haiku 5.5 | medium | 48 % | 47 % | 52 % | |
+| Haiku 5.5 | high | 52 % | 55 % | 47 % | p = 0.24 |
+
+The Hex effort result does not carry over. Sonnet at medium effort reflected on Go as on
+Hex (5.6–6.7 calls per round, code changed at 1–2 of 10 reflections, a saved tool run in
+1–6 % of games) and its held-out ID stayed within 55–70 %; its play did not change either
+(4–13 illegal submissions per checkpoint to the end). At high effort Sonnet's play did
+change, but its two lineages split (one at 85–90 %, the other at 15–20 % for checkpoints
+6–9, section 3.4) and pool to the medium score. Haiku stays flat at both efforts;
+`go_haiku_medium` gets P_sat 23,266 from a rise that fails the flat-curve test (p = 0.33).
+
+### 3.11 Problems found in our own pipeline
 
 - **Opening banks.** Banks drawn from a separate seed per split made held-out ID harder
   than train (Sonnet 8/8 train vs 2/12 ID, z ≈ 3.7). That run was stopped after one
@@ -382,6 +403,8 @@ at a time per lineage, Claude 4.
 - **Cost caps shaped the Go data before plan B.** One Go Sonnet lineage stopped after 6 of
   8 checkpoints under plan A; plan B resumed it, replaying the uncounted checkpoint 6 as a
   new sample, so its checkpoint 6 is not the one first played.
+- **The effort result holds on Hex only.** On Go, two lineages per cell show no effort
+  difference; at high effort the Sonnet lineages split, so more lineages could move either way.
 - **The effort question was raised after seeing data.** The first high-effort run was
   motivated by the medium-effort failure; the replicates were run afterwards, but a
   pre-registered study would be stronger.
@@ -443,6 +466,7 @@ scripts/plan_a.sh            # the six reflection-effort-high lineages of report
 scripts/plan_b.sh            # extends every lineage to checkpoint 10
 uv run python scripts/compare_models.py
 uv run python scripts/compare_glm.py   # report 21 (plan C: scripts/plan_c.sh)
+uv run python scripts/compare_go_effort.py   # report 22 (plan C)
 uv run python scripts/ablate_inventory.py --yes --cap 8           # test 6, report 17
 uv run python scripts/run_hex.py --model anthropic/claude-sonnet-5.5 --rounds 7 \
     --train 8 --id 12 --ood 4 --workers 4 --reflect-effort high --no-feedback --cap 9 \
@@ -453,4 +477,4 @@ uv run python scripts/replay_thinking.py --dry                   # report 16: pl
 
 Total API spend for the whole project: $229.27 as of 2026-11-02 (all lineages, smoke runs,
 probes, tests 5 and 6, the thinking replay, plan B's extensions, and plan C's four GLM 5.3
-lineages, $48.05 billed, reports 20–21). Reports 01–21 in `reports/` hold every number above.
+lineages, $48.05 billed, reports 20–22). Reports 01–22 in `reports/` hold every number above.
