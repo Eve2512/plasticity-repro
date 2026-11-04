@@ -120,8 +120,6 @@ curve, and conclusions rest on pooled lineages, not one P_sat.
 
 ## 3. Results
 
-| Lineage | Model | Reflection effort | Held-out ID per checkpoint (%) | Billed |
-|---|---|---|---|---|
 Plan B extended every lineage below to checkpoint 10 (the no-feedback controls and
 `haiku_r20` were not extended) and added `hex_haiku_medium_rep2`.
 
@@ -489,7 +487,8 @@ no Go condition showed a pooled learning curve to re-test. Billed $5.40.
 - **Small held-out sets, replayed.** 12 ID games per checkpoint on Hex (24 for `haiku_r20`), 20 on Go,
   the same openings at every checkpoint, so later checkpoints often replay earlier games
   (section 3.12) and the effective sample is the 12 or 20 openings, not the games. Only the Hex
-  Sonnet effort comparison was re-run with new openings at every checkpoint (section 3.13). Single Hex lineages do
+  Sonnet effort comparison was re-run with new openings at every checkpoint (section 3.13); on Go
+  only the final inventories were (section 3.14), so no Go learning curve was re-tested. Single Hex lineages do
   not pass the flat-curve test (p = 0.09–0.11 for the high-effort runs over checkpoints
   0–10); the effort result rests on pooling two lineages per condition.
 - **Two lineages per condition**, all with the same opening bank; no seeds varied beyond
@@ -579,6 +578,7 @@ uv run python scripts/run_hex.py --model anthropic/claude-sonnet-5.5 --rounds 7 
     --name sonnet_nofeedback_high --yes                          # test 5 (and _rep2)
 uv run python scripts/compare_feedback.py                        # report 18
 uv run python scripts/replay_thinking.py --dry                   # report 16: plan, then --yes
+uv run python scripts/export_hf.py && uv run python scripts/add_trace_viewer.py   # HF export (local)
 ```
 
 Total API spend for the whole project: $282.36 as of 2026-11-04 (all lineages, smoke runs,

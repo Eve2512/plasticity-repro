@@ -28,7 +28,7 @@ paper's equations (Section 2) and appendix (Appendix B settings, Appendix I prom
 | Games | Chess, 5×5 Go, 6×6 Hex, NetHack | 6×6 Hex and 5×5 Go (GNU Go opponent, calibration in report 13) |
 | Models | 8 frontier models | Sonnet 5.5 and Haiku 5.5; GLM 5.3 in plan C (reports [20](reports/20_glm_tool_rewrite.md), [21](reports/21_glm_vs_claude.md)); Opus 5.5 probed only |
 | Checkpoints | 20 (NetHack 40) | 11 (checkpoints 0–10); one Haiku lineage 21 |
-| Learning cost per lineage | about $1,000–3,000 (chess) | measured on a smoke run first |
+| Learning cost per lineage | about $1,000–3,000 (chess) | $2–21 billed per lineage (whole project $282.36) |
 
 ## Limitation tests
 
@@ -130,6 +130,7 @@ tests/        pytest suite
 scripts/      experiments that write the markdown files in reports/
 reports/      results
 docs/         protocol notes and deviations from the paper
+data/         opening banks (pooled, contested, fresh held-out)
 runs/         run output (git-ignored)
 ```
 
@@ -163,7 +164,7 @@ $ uv run pytest
 ........................................................................ [ 43%]
 ........................................................................ [ 87%]
 .....................                                                    [100%]
-170 passed
+177 passed
 $ uv run python scripts/validate_recovery.py
 wrote reports/01_parameter_recovery.md
 ```

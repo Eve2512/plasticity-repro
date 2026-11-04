@@ -13,7 +13,7 @@ Reads export/agent-plasticity-hex-go/data/ and writes export/agent-plasticity-he
 so run it after scripts/export_hf.py. Nothing is uploaded; `hf upload` of the export folder
 sends the traces with the data and the card (scripts/hf_dataset_card.md lists the configs).
 
-    uv run python add_trace_viewer.py
+    uv run python scripts/add_trace_viewer.py
 """
 
 # ---------------------------------------------------------------- 1. Imports
@@ -26,7 +26,7 @@ from pathlib import Path
 
 # ---------------------------------------------------------------- 2. Settings
 HARNESS = "agent-plasticity-hex-go"
-EXPORT = Path(__file__).resolve().parent / "export" / "agent-plasticity-hex-go"
+EXPORT = Path(__file__).resolve().parent.parent / "export" / "agent-plasticity-hex-go"
 DATA = EXPORT / "data"
 OUT = EXPORT / "traces"
 TRANSCRIPT_COLUMNS = ["messages", "transcript", "conversation"]
