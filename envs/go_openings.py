@@ -35,6 +35,8 @@ DIFFICULTY_LEVELS = (5, 7, 9)
 PLIES = {BLACK: 2, WHITE: 3}  # actor Black after 2 random moves, White after 3
 POOL_SEED = 5005
 POOLED_FILE = Path(__file__).resolve().parent.parent / "data" / "go_openings_pooled.json"
+FRESH_FILE = POOLED_FILE.with_name("go_openings_fresh_id.json")  # held-out ID openings outside the pool
+FRESH_SEED = 700  # GNU Go seeds of fresh held-out games: 700, 701, ... (ID 0.., OOD 500.., train 1000..)
 # Pool sizes per colour: held-out banks for the paper's counts (20 ID, 12 OOD, half
 # per colour) and a training reservoir several times the paper's 20 train games.
 POOL_TARGETS = {"id": 10, "ood": 6, "train": 40}
@@ -218,3 +220,90 @@ def split_banks(games: dict[str, int], checkpoint: int = 0, bank_file: Path = PO
         base = 1000 * (checkpoint + 1) if split == "train" else {"id": 0, "ood": 500}.get(split, 0)
         out[split] = [replace(o, seed=base + i) for i, o in enumerate(bank)]
     return out
+
+
+_COLS = "ABCDE"
+
+
+def canonical(moves) -> tuple[str, ...]:
+    """The smallest of the 8 rotations and reflections of a move sequence on the 5x5 board."""
+    forms = []
+    for k in range(8):
+        out = []
+        for m in moves:
+            if m.lower() == "pass":
+                out.append(m)
+                continue
+            x, y = _COLS.index(m[0].upper()), int(m[1:]) - 1
+            for _ in range(k % 4):
+                x, y = y, 4 - x
+            if k >= 4:
+                x = 4 - x
+            out.append(f"{_COLS[x]}{y + 1}")
+        forms.append(tuple(out))
+    return min(forms)
+
+
+def build_fresh_id_bank(per_colour: int, workers: int = 1, progress=None) -> dict:
+    """Contested openings for a new held-out ID bank, none in the same symmetry class as a held-out
+    opening of the pooled bank (ID or OOD), as an exact training opening, or as each other.
+
+    Same candidates and contest rule as build_pooled_banks; only one candidate per new symmetry
+    class is scored. Stored in spread_order over the difficulty-sorted list. Each entry says
+    whether it is a rotation or reflection of a training opening (`train_symmetric`). A colour
+    gets fewer than `per_colour` openings when its contested classes run out.
+    """
+    from multiprocessing import get_context
+
+    pooled = json.loads(POOLED_FILE.read_text())["banks"]
+    banks, tried = {}, 0
+    with get_context("spawn").Pool(workers) as procs:
+        for actor in (BLACK, WHITE):
+            held_out = {canonical(e["moves"]) for split in ("id", "ood") for e in pooled[split][actor]}
+            train = {tuple(e["moves"]) for e in pooled["train"][actor]}
+            train_classes = {canonical(m) for m in train}
+            seen, todo, stale = set(held_out), [], 0
+            for opening in _candidates(actor, PLIES[actor], seed=POOL_SEED + 1):
+                c = canonical(opening.moves)
+                if c in seen or opening.moves in train:
+                    stale += 1
+                    if stale > 20_000:  # every class has been met
+                        break
+                    continue
+                seen.add(c)
+                stale = 0
+                todo.append(opening)
+            pool = []
+            for i in range(0, len(todo), workers):
+                if len(pool) >= per_colour:
+                    break
+                chunk = todo[i:i + workers]
+                for o, d in zip(chunk, procs.map(score, chunk)):
+                    tried += 1
+                    if d is not None and len(pool) < per_colour:
+                        pool.append((list(o.moves), round(d, 2), canonical(o.moves) in train_classes))
+                        if progress:
+                            progress(actor, len(pool), per_colour, tried)
+            pool.sort(key=lambda e: (e[1], " ".join(e[0])))
+            banks[actor] = [{"moves": pool[p][0], "difficulty": pool[p][1], "train_symmetric": pool[p][2]}
+                            for p in spread_order(len(pool))]
+    return {
+        "version": 1,
+        "plies": PLIES,
+        "rule": "as the pooled bank; no symmetry class of a pooled held-out opening, no exact training "
+                "opening, one opening per symmetry class",
+        "candidates_tried": tried,
+        "banks": {"id": banks},
+    }
+
+
+def fresh_id_bank(n: int, bank_file: Path = FRESH_FILE) -> list[Opening]:
+    """The first n fresh held-out ID openings, half per colour (Black first), seeds FRESH_SEED + i."""
+    stored = json.loads(bank_file.read_text())["banks"]["id"]
+    bank = []
+    for actor, count in {BLACK: n // 2, WHITE: n - n // 2}.items():
+        have = stored.get(actor, [])
+        if len(have) < count:
+            raise ValueError(f"{bank_file.name} has {len(have)} {actor} openings, need {count}")
+        bank += [Opening(tuple(e["moves"]), actor) for e in have[:count]]
+    return [replace(o, seed=FRESH_SEED + i) for i, o in enumerate(bank)]

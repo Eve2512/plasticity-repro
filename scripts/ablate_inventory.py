@@ -6,6 +6,7 @@ model, effort, openings and opponents as the run:
     with    the final inventory, as the run would have used it
     empty   an empty inventory (only the tracking files)
     forced  the final inventory, and the actor is told to load and use its saved tools
+    fresh   the final inventory, on Go held-out openings no run has played (report 25; --arms fresh)
 
 If "with" beats "empty", the gain lives in the artifacts; if "forced" beats "with",
 the agent under-uses what it built. No reflection: only games.
@@ -14,6 +15,7 @@ the agent under-uses what it built. No reflection: only games.
     uv run python scripts/ablate_inventory.py --plan                    # cost estimate
     uv run python scripts/ablate_inventory.py --yes --cap 8             # paid
     uv run python scripts/ablate_inventory.py --report                  # writes reports/17_artifact_ablation.md
+    uv run python scripts/ablate_inventory.py go_sonnet_reflect_high --arms fresh --id 40 --plan   # report 25
 
 Output (git-ignored): runs/<run>/ablation_checkpoint_NNN/<arm>/ with transcripts and
 a ledger. A second paid call skips games already played. Ablation spend is not
@@ -26,6 +28,7 @@ import sys
 from pathlib import Path
 
 from envs.games import GAMES
+from envs.go_openings import fresh_id_bank
 from harness.anthropic_model import BILLING, ModelSpec
 from harness.episode import EpisodeConfig, GameResult
 from harness.inventory import empty_inventory
@@ -38,6 +41,7 @@ ROOT = Path(__file__).resolve().parent.parent
 REPORT = ROOT / "reports" / "17_artifact_ablation.md"
 HARD_CAP = 15.0
 ARMS = ("with", "empty", "forced")
+OTHER_ARMS = ("fresh",)  # not part of report 17
 FORCED = ("Your inventory holds tools you saved in earlier rounds. Load them with load_python and use "
           "them to choose your moves in this game.")
 # The two high-effort Hex Sonnet lineages: the ones that improved (report 12).
@@ -56,7 +60,12 @@ def arm_dir(run_dir: Path, t: int, arm: str) -> Path:
 def jobs(run_dir: Path, t: int, arm: str, n_id: int) -> list[_Job]:
     cfg = json.loads((run_dir / "results.json").read_text())["config"]
     spec = GAMES[cfg.get("game", "hex")]
-    bank = spec.banks({"train": 1, "id": n_id, "ood": 1}, cfg["openings"], t)["id"]
+    if arm == "fresh":
+        if spec.name != "go":
+            raise ValueError("the fresh arm is for Go lineages (Hex: run with --openings fresh)")
+        bank = fresh_id_bank(n_id)
+    else:
+        bank = spec.banks({"train": 1, "id": n_id, "ood": 1}, cfg["openings"], t)["id"]
     levels = cfg["train_id_levels"]
     base = arm_dir(run_dir, t, arm) / "games"
     out = []
@@ -147,6 +156,7 @@ def main(argv):
     parser.add_argument("--id", type=int, default=24, help="held-out ID games per arm (both colours)")
     parser.add_argument("--cap", type=float, default=8.0)
     parser.add_argument("--workers", type=int, default=4)
+    parser.add_argument("--arms", nargs="+", default=list(ARMS), choices=ARMS + OTHER_ARMS)
     mode = parser.add_mutually_exclusive_group(required=True)
     mode.add_argument("--plan", action="store_true", help="cost estimate only")
     mode.add_argument("--dry", action="store_true", help="scripted model, no API calls; writes to runs/<run>_ablation_dry")
@@ -163,7 +173,7 @@ def main(argv):
         run_dir = ROOT / "runs" / run
         t = final_checkpoint(run_dir)
         per_game = eval_cost_per_game(run_dir, t)
-        left = sum(1 for arm in ARMS for j in jobs(run_dir, t, arm, args.id) if not j.transcript.exists())
+        left = sum(1 for arm in args.arms for j in jobs(run_dir, t, arm, args.id) if not j.transcript.exists())
         total += left * per_game
         print(f"{run}: checkpoint {t}, {left} games to play at ~${per_game:.3f} each = ${left * per_game:.2f}")
     print(f"estimated total ${total:.2f}; the forced arm may cost more per game (more tool calls)")
@@ -192,7 +202,7 @@ def main(argv):
             run_dir, factory = dry_dir, first_legal_factory(name="scripted")
         else:
             factory = ModelSpec(model_id, key=key, effort=EFFORT, thinking_display="summarized")
-        for arm in ARMS:
+        for arm in args.arms:
             ledger = Ledger(BILLING[model_id], arm_dir(run_dir, t, arm) / "ledger.jsonl", billing=BILLING[model_id],
                             cap=args.cap)
             for e in Ledger.read(ledger.path):
@@ -211,7 +221,7 @@ def main(argv):
         total = ledger.billed()
         s = summary(run_dir, t, arm)
         print(f"{run} {arm}: {s['wins']:g}/{s['games']} held-out ID; ${total:.2f} of ablation billed")
-    if not args.dry:
+    if not args.dry and set(args.arms) <= set(ARMS):
         report(args.runs, args.id)
     return 0
 

@@ -95,7 +95,10 @@ RUNS = [
         ("hex_sonnet_medium_fresh_rep2", {}, "Replicate of hex_sonnet_medium_fresh."),
     )),
 ]
-ABLATED = ["sonnet_reflect_high", "sonnet_reflect_high_rep2"]  # limitation test 6, reports/17_artifact_ablation.md
+ABLATED = ["sonnet_reflect_high", "sonnet_reflect_high_rep2",  # limitation test 6, reports/17_artifact_ablation.md
+           # arm "fresh": final inventories on new Go held-out openings, reports/25_go_fresh_openings.md
+           "go_sonnet_reflect_high", "go_sonnet_reflect_high_rep2", "go_haiku_reflect_high",
+           "go_haiku_reflect_high_rep2", "go_glm_reflect_high", "go_glm_reflect_high_rep2"]
 EFFORT = "medium"  # actor effort in every run
 PROVIDER = "openrouter"
 
@@ -230,12 +233,14 @@ def replay_rows(run):
 
 
 def ablation_rows(name):
-    """Held-out ID games from the final checkpoint with the inventory kept, removed or forced."""
+    """Held-out ID games from the final checkpoint with the inventory kept, removed or forced, or on
+    fresh openings (Go)."""
+    game = "go" if name.startswith("go_") else "hex"
     for f in sorted((ROOT / "runs" / name).glob("ablation_checkpoint_*/*/games/*.json")):
         g = json.loads(f.read_text())
         r = g["result"]
-        yield {"run_id": name, "game": "hex", "checkpoint": int(f.parts[-4].split("_")[-1]), "arm": f.parts[-3],
-               "game_id": r["game_id"], "actor": GAMES["hex"].colours[r["actor"]], "opening": g["opening"],
+        yield {"run_id": name, "game": game, "checkpoint": int(f.parts[-4].split("_")[-1]), "arm": f.parts[-3],
+               "game_id": r["game_id"], "actor": GAMES[game].colours[r["actor"]], "opening": g["opening"],
                "moves": r["moves"], "winner": r["winner"], "score": r["score"], "end_reason": r["end_reason"],
                "model_calls": r["model_calls"], "invalid_submissions": r["invalid_submissions"],
                "messages": g["messages"]}
@@ -261,6 +266,11 @@ def opening_rows():
                     yield {"game": game, "bank": bank, "split": split, "checkpoint": None,
                            "actor": GAMES[game].colours[actor], "index": i, "moves": moves,
                            "difficulty": e.get("difficulty") if isinstance(e, dict) else None}
+    for actor, entries in json.loads(go_openings.FRESH_FILE.read_text())["banks"]["id"].items():  # report 25
+        for i, e in enumerate(entries):
+            yield {"game": "go", "bank": "fresh", "split": "id", "checkpoint": None,
+                   "actor": GAMES["go"].colours[actor], "index": i, "moves": e["moves"],
+                   "difficulty": e["difficulty"]}
     for t, by in json.loads(FRESH_FILE.read_text())["banks"].items():  # plan D: held-out ID per checkpoint
         for actor, entries in by.items():
             for i, e in enumerate(entries):

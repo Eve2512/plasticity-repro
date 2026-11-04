@@ -90,7 +90,10 @@ Against Claude ([report 21](reports/21_glm_vs_claude.md)), GLM lost most of its 
 games to the time and call limits and fixed that in one reflection. That jump alone passes
 the flat-curve test in three of its four lineages and gives its Go lineages P_sat of
 48,000–60,000, the highest in the project, although its held-out ID after checkpoint 1 is
-flat or falling (late: Hex 24 %, Go 46 %, against Sonnet's 83 % and 60 %).
+flat or falling (late: Hex 24 %, Go 46 %, against Sonnet's 83 % and 60 %). On 40 new Go
+held-out openings, both Claude models' final tools beat GLM's clearly (Sonnet 24 openings better,
+1 worse; Haiku 18 and 3), but Sonnet against Haiku is not established (13 and 8, p = 0.38), because
+the two Sonnet lineages score 95 % and 50 % ([report 25](reports/25_go_fresh_openings.md)).
 
 Limitation tests 5 and 6 (Hex, Sonnet, reflection effort high):
 
