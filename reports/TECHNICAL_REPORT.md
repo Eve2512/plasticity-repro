@@ -4,7 +4,7 @@ Independent, scaled-down reproduction of *Agent Plasticity: Measuring Self-Impro
 Through Experience* (Singh et al., arXiv:2610.08902, October 2026). The authors released
 no code; everything here was rebuilt from the paper's equations (Section 2) and appendix
 (Appendix B settings, Appendix I prompts). Data: the Hugging Face dataset
-`Eve39570/agent-plasticity-hex-go` (8,474 game transcripts on both games, 276 reflection logs, 1,377 replayed reflection turns, 144 ablation games, all also in the Hub's trace viewer).
+`Eve39570/agent-plasticity-hex-go` (8,474 game transcripts on both games, 276 reflection logs, 1,377 replayed reflection turns, 384 ablation and fresh-opening games, all also in the Hub's trace viewer).
 
 ## Summary
 
@@ -49,6 +49,8 @@ no code; everything here was rebuilt from the paper's equations (Section 2) and 
   Every main result keeps its direction when openings are the unit, but most p-values grow
   by orders of magnitude, and the Go model gaps are no longer below 0.05 (report 23). With new
   held-out openings at every checkpoint the Hex effort result and its learning curve hold (report 24).
+  On 40 new Go openings both Claude models beat GLM clearly (p ≤ 0.0015), but Sonnet against Haiku
+  is not established (p = 0.38): its two lineages score 95 % and 50 % (report 25).
 - **Learning showed up as testing, in the thinking.** Thinking summaries (replayed for old
   runs) show the lineages that learned playing new tool versions against the current one
   before installing them; Haiku never did, and one Go Sonnet lineage tested only against its
@@ -457,6 +459,27 @@ against 50 % at the top difficulty score), so levels across the two plans are no
 comparable; the comparisons inside plan D are. Plan D billed $44.94; a doubled start cost
 $2.27 more and was discarded (docs/PROTOCOL_NOTES.md).
 
+### 3.14 Go model gaps on fresh held-out openings
+
+On Go the late model gaps lost significance once openings were the unit (section 3.12). Each
+Go lineage's final inventory (reflection effort high) then played 40 held-out openings no run
+had played, the same 40 for every lineage, once each (report 25). The new openings come from
+the same contested pool with the same median difficulty, and none shares a symmetry class of
+the 5×5 board with an original held-out opening; 10 of the 20 Black openings are rotations or
+reflections of training openings, because 2-move Black openings fall into few classes.
+
+| Comparison | A | B | B better / worse | Sign p | Without the 10 symmetric openings |
+|---|---|---|---|---|---|
+| Sonnet vs GLM | 35 % | 72 % | 24 / 1 | 1.5e-06 | 18 / 1, p = 7.6e-05 |
+| Haiku vs GLM | 35 % | 62 % | 18 / 3 | 0.0015 | 13 / 3, p = 0.021 |
+| Sonnet vs Haiku | 62 % | 72 % | 13 / 8 | 0.38 | 9 / 4, p = 0.27 |
+
+Both gaps to GLM hold. Sonnet against Haiku does not: the Sonnet lineages score 95 % and 50 %,
+the second below both Haiku lineages (68 % and 58 %), so the comparison depends on which Sonnet
+lineage one ran. Each final inventory scored within about 10 points of its checkpoint-10 score
+on the original 20 openings, except one Haiku lineage (68 % against 45 %). These are endpoints;
+no Go condition showed a pooled learning curve to re-test. Billed $5.40.
+
 ## 4. Limitations
 
 - **Two small games.** 6×6 Hex and 5×5 Go only; no chess or NetHack. On 5×5 the GNU Go
@@ -546,6 +569,10 @@ uv run python scripts/check_repeats.py   # report 23 (no API cost)
 uv run python scripts/build_hex_openings.py --kind fresh   # held-out ID openings per checkpoint
 scripts/plan_d.sh                                  # four Hex Sonnet lineages on fresh openings
 uv run python scripts/compare_fresh.py             # report 24
+uv run python scripts/build_go_openings.py --fresh # 40 new Go held-out openings
+uv run python scripts/ablate_inventory.py go_sonnet_reflect_high go_sonnet_reflect_high_rep2 \
+    go_haiku_reflect_high go_haiku_reflect_high_rep2 --arms fresh --id 40 --cap 4.5 --yes   # GLM: --workers 2
+uv run python scripts/compare_go_fresh.py          # report 25
 uv run python scripts/ablate_inventory.py --yes --cap 8           # test 6, report 17
 uv run python scripts/run_hex.py --model anthropic/claude-sonnet-5.5 --rounds 7 \
     --train 8 --id 12 --ood 4 --workers 4 --reflect-effort high --no-feedback --cap 9 \
@@ -554,7 +581,8 @@ uv run python scripts/compare_feedback.py                        # report 18
 uv run python scripts/replay_thinking.py --dry                   # report 16: plan, then --yes
 ```
 
-Total API spend for the whole project: $276.96 as of 2026-11-03 (all lineages, smoke runs,
+Total API spend for the whole project: $282.36 as of 2026-11-04 (all lineages, smoke runs,
 probes, tests 5 and 6, the thinking replay, plan B's extensions, plan C's four GLM 5.3
 lineages, $48.05 billed, reports 20–22, and plan D's four fresh-opening lineages, $44.94 billed
-plus $2.27 of a discarded doubled start, report 24). Reports 01–24 in `reports/` hold every number above.
+plus $2.27 of a discarded doubled start, report 24, and the Go fresh-opening games, $5.40,
+report 25). Reports 01–25 in `reports/` hold every number above.

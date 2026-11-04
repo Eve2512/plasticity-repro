@@ -177,10 +177,10 @@ Every table has a `game` column (`hex` or `go`).
 | `reflections` | 171 + 105 | a reflection attempt: **full transcript** with thinking where recorded, validator result |
 | `inventories` | 814 + 578 | a file the agent saved, at a checkpoint (code, notes, tracking JSON) |
 | `calls` | 62,236 + 48,269 | a model call: tokens (input, cached, cache write, output) and charged cost |
-| `openings` | 366 + 112 | a starting position from the legacy, contested, pooled or fresh bank (`checkpoint` set for fresh: held-out ID openings new at each checkpoint) |
+| `openings` | 366 + 152 | a starting position from the legacy, contested, pooled or fresh bank (fresh: held-out openings no original run played; on Hex `checkpoint` says which checkpoint plays it) |
 | `thinking_replay` | 830 + 547 | a saved reflection turn sent again with thinking summaries on: recorded and replayed calls, summary |
-| `ablation_games` | 144 + 0 | a held-out ID game from a final checkpoint with the inventory kept, removed or forced (`arm`) |
-| `trace_viewer` | 420 | every reflection (with replayed summaries, labelled, where none was recorded) and ablation game, as a transcript in Pi's session format, for the trace viewer |
+| `ablation_games` | 144 + 240 | a held-out ID game from a final checkpoint with the inventory kept, removed or forced, or on 40 fresh Go openings (`arm` = `fresh`) |
+| `trace_viewer` | 660 | every reflection (with replayed summaries, labelled, where none was recorded) and ablation game, as a transcript in Pi's session format, for the trace viewer |
 | `traces_<run_id>` | 8,474 in all | every game of one run, in the same format (one config per run: the Hub's conversion timed out on one config of 3,918 files) |
 
 In `trace_viewer` and `traces_*` the `harness` column says `pi`. The traces were not run in Pi. The harness
@@ -235,6 +235,10 @@ Held-out ID, early → late (checkpoints 0–3 → 4–10 for Hex Sonnet, 0–2 
   lineages P_sat of 48,000–60,000, the highest here, while its held-out ID after checkpoint 1 is flat
   or falling (late: Hex 24 %, Go 46 %). In `hex_glm_reflect_high` one reflection wrote a one-line bug
   into its search tool, and held-out ID fell from 75 % to 0 %.
+- **Go, fresh openings:** each Go lineage's final inventory played 40 openings no run had played
+  (`ablation_games`, `arm = "fresh"`). Sonnet and Haiku both beat GLM opening by opening (24 better /
+  1 worse, 18 / 3); Sonnet against Haiku is not established (13 / 8, p = 0.38) because the two Sonnet
+  lineages score 95 % and 50 % (report 25).
 
 Two limitation tests on Hex Sonnet at reflection effort `high` (reports 17 and 18).
 Removing the final inventory drops held-out ID from 92 % to 50–54 % (`ablation_games`).
@@ -242,7 +246,7 @@ Reflection without game records (`runs.reflection_feedback = "none"`) built no t
 on the same held-out openings the feedback lineages won 38 games the no-feedback lineages
 lost, and lost 5 they won, from checkpoint 3 on (per opening: 8 better, 1 worse, p = 0.039).
 
-Details: `reports/TECHNICAL_REPORT.md` and reports 12, 15, 21–24 in the source repository.
+Details: `reports/TECHNICAL_REPORT.md` and reports 12, 15, 21–25 in the source repository.
 
 ## Fields worth knowing
 

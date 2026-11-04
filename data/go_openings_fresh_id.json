@@ -1,0 +1,357 @@
+{
+ "version": 1,
+ "plies": {
+  "X": 2,
+  "O": 3
+ },
+ "rule": "as the pooled bank; no symmetry class of a pooled held-out opening, no exact training opening, one opening per symmetry class",
+ "candidates_tried": 70,
+ "banks": {
+  "id": {
+   "X": [
+    {
+     "moves": [
+      "A1",
+      "B4"
+     ],
+     "difficulty": 15.5,
+     "train_symmetric": false
+    },
+    {
+     "moves": [
+      "C5",
+      "E3"
+     ],
+     "difficulty": 15.5,
+     "train_symmetric": true
+    },
+    {
+     "moves": [
+      "B3",
+      "E1"
+     ],
+     "difficulty": 15.5,
+     "train_symmetric": false
+    },
+    {
+     "moves": [
+      "D4",
+      "D1"
+     ],
+     "difficulty": 15.5,
+     "train_symmetric": false
+    },
+    {
+     "moves": [
+      "A2",
+      "D2"
+     ],
+     "difficulty": 15.5,
+     "train_symmetric": false
+    },
+    {
+     "moves": [
+      "D2",
+      "B4"
+     ],
+     "difficulty": 15.5,
+     "train_symmetric": true
+    },
+    {
+     "moves": [
+      "C3",
+      "D2"
+     ],
+     "difficulty": 15.5,
+     "train_symmetric": false
+    },
+    {
+     "moves": [
+      "E2",
+      "A5"
+     ],
+     "difficulty": 15.5,
+     "train_symmetric": true
+    },
+    {
+     "moves": [
+      "A1",
+      "C5"
+     ],
+     "difficulty": 15.5,
+     "train_symmetric": false
+    },
+    {
+     "moves": [
+      "D2",
+      "B2"
+     ],
+     "difficulty": 15.5,
+     "train_symmetric": true
+    },
+    {
+     "moves": [
+      "B5",
+      "E2"
+     ],
+     "difficulty": 15.5,
+     "train_symmetric": false
+    },
+    {
+     "moves": [
+      "D5",
+      "C5"
+     ],
+     "difficulty": 15.5,
+     "train_symmetric": true
+    },
+    {
+     "moves": [
+      "B1",
+      "A3"
+     ],
+     "difficulty": 15.5,
+     "train_symmetric": true
+    },
+    {
+     "moves": [
+      "D3",
+      "C5"
+     ],
+     "difficulty": 15.5,
+     "train_symmetric": true
+    },
+    {
+     "moves": [
+      "C4",
+      "A4"
+     ],
+     "difficulty": 15.5,
+     "train_symmetric": false
+    },
+    {
+     "moves": [
+      "E3",
+      "B5"
+     ],
+     "difficulty": 15.5,
+     "train_symmetric": false
+    },
+    {
+     "moves": [
+      "B2",
+      "C5"
+     ],
+     "difficulty": 15.5,
+     "train_symmetric": false
+    },
+    {
+     "moves": [
+      "D4",
+      "B1"
+     ],
+     "difficulty": 15.5,
+     "train_symmetric": true
+    },
+    {
+     "moves": [
+      "C4",
+      "B3"
+     ],
+     "difficulty": 15.5,
+     "train_symmetric": true
+    },
+    {
+     "moves": [
+      "E4",
+      "B5"
+     ],
+     "difficulty": 15.5,
+     "train_symmetric": true
+    }
+   ],
+   "O": [
+    {
+     "moves": [
+      "B5",
+      "E3",
+      "C2"
+     ],
+     "difficulty": 6.5,
+     "train_symmetric": false
+    },
+    {
+     "moves": [
+      "C1",
+      "B3",
+      "C4"
+     ],
+     "difficulty": 34.5,
+     "train_symmetric": false
+    },
+    {
+     "moves": [
+      "A4",
+      "B5",
+      "A3"
+     ],
+     "difficulty": 34.5,
+     "train_symmetric": false
+    },
+    {
+     "moves": [
+      "C5",
+      "C3",
+      "B4"
+     ],
+     "difficulty": 34.5,
+     "train_symmetric": false
+    },
+    {
+     "moves": [
+      "B4",
+      "B2",
+      "D1"
+     ],
+     "difficulty": 27.17,
+     "train_symmetric": false
+    },
+    {
+     "moves": [
+      "C2",
+      "B4",
+      "D2"
+     ],
+     "difficulty": 34.5,
+     "train_symmetric": false
+    },
+    {
+     "moves": [
+      "A5",
+      "E1",
+      "A1"
+     ],
+     "difficulty": 34.5,
+     "train_symmetric": false
+    },
+    {
+     "moves": [
+      "D4",
+      "C2",
+      "E2"
+     ],
+     "difficulty": 34.5,
+     "train_symmetric": false
+    },
+    {
+     "moves": [
+      "B2",
+      "D4",
+      "A4"
+     ],
+     "difficulty": 14.5,
+     "train_symmetric": false
+    },
+    {
+     "moves": [
+      "C1",
+      "D1",
+      "E1"
+     ],
+     "difficulty": 34.5,
+     "train_symmetric": false
+    },
+    {
+     "moves": [
+      "A5",
+      "D1",
+      "E5"
+     ],
+     "difficulty": 34.5,
+     "train_symmetric": false
+    },
+    {
+     "moves": [
+      "D1",
+      "B5",
+      "A5"
+     ],
+     "difficulty": 34.5,
+     "train_symmetric": false
+    },
+    {
+     "moves": [
+      "A1",
+      "C3",
+      "C4"
+     ],
+     "difficulty": 34.5,
+     "train_symmetric": false
+    },
+    {
+     "moves": [
+      "C4",
+      "C5",
+      "A5"
+     ],
+     "difficulty": 34.5,
+     "train_symmetric": false
+    },
+    {
+     "moves": [
+      "A5",
+      "E4",
+      "D5"
+     ],
+     "difficulty": 34.5,
+     "train_symmetric": false
+    },
+    {
+     "moves": [
+      "D5",
+      "C3",
+      "E4"
+     ],
+     "difficulty": 34.5,
+     "train_symmetric": false
+    },
+    {
+     "moves": [
+      "A2",
+      "C3",
+      "C5"
+     ],
+     "difficulty": 34.5,
+     "train_symmetric": false
+    },
+    {
+     "moves": [
+      "C5",
+      "B1",
+      "D5"
+     ],
+     "difficulty": 34.5,
+     "train_symmetric": false
+    },
+    {
+     "moves": [
+      "B5",
+      "D2",
+      "D5"
+     ],
+     "difficulty": 34.5,
+     "train_symmetric": false
+    },
+    {
+     "moves": [
+      "E3",
+      "D4",
+      "B5"
+     ],
+     "difficulty": 34.5,
+     "train_symmetric": false
+    }
+   ]
+  }
+ }
+}

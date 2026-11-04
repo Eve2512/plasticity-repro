@@ -6,13 +6,14 @@ from. Runs read the saved file, so every run uses the same held-out games.
 
     uv run python scripts/build_go_openings.py
     uv run python scripts/build_go_openings.py --redeal   # re-deal the saved pool, no games
+    uv run python scripts/build_go_openings.py --fresh    # 20 + 20 fresh held-out ID openings (report 25)
 """
 
 import json
 import os
 import sys
 
-from envs.go_openings import POOLED_FILE, build_pooled_banks, redeal
+from envs.go_openings import FRESH_FILE, POOLED_FILE, build_fresh_id_bank, build_pooled_banks, redeal
 
 
 def main():
@@ -21,6 +22,12 @@ def main():
         print(f"re-dealt {POOLED_FILE.relative_to(POOLED_FILE.parent.parent)}")
         return
     workers = max(1, (os.cpu_count() or 2) - 1)
+    if "--fresh" in sys.argv[1:]:
+        data = build_fresh_id_bank(20, workers=workers,
+                                   progress=lambda a, k, n, t: print(f"{a}: {k}/{n} kept ({t} tried)", flush=True))
+        FRESH_FILE.write_text(json.dumps(data, indent=1))
+        print(f"wrote {FRESH_FILE.relative_to(FRESH_FILE.parent.parent)}: {data['candidates_tried']} candidates tried")
+        return
     data = build_pooled_banks(
         workers=workers, progress=lambda a, k, n, t: print(f"{a}: {k}/{n} kept ({t} tried)", flush=True))
     POOLED_FILE.parent.mkdir(exist_ok=True)
