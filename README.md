@@ -19,6 +19,8 @@ artifacts (Python tools, notes, skills) that it writes after each round of games
 The authors did not release code. This repository rebuilds the protocol from the
 paper's equations (Section 2) and appendix (Appendix B settings, Appendix I prompts).
 
+**Short read of the results: [FINDINGS.md](FINDINGS.md).** Full write-up: [reports/TECHNICAL_REPORT.md](reports/TECHNICAL_REPORT.md).
+
 ## Scope
 
 | Part | Paper | This repo |
