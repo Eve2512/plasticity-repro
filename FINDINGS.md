@@ -4,7 +4,8 @@ A short read of what this reproduction found. Methods, every table and the limit
 [reports/TECHNICAL_REPORT.md](reports/TECHNICAL_REPORT.md); every number comes from reports 01–25 in
 [reports/](reports/). Data: the Hugging Face dataset `Eve39570/agent-plasticity-hex-go` (8,474
 games, 276 reflections, 384 ablation and fresh-opening games). Total API spend: $282.36, plus
-$7.18 for two small paid probes whose code and games are not in the repo (marked "probe" below).
+$49.38 for two paid probes whose code and games are not in the repo (marked "probe" below):
+Finding 2 ($45.39) and drift ($3.99).
 
 ## The question
 
@@ -35,8 +36,10 @@ Each result below says which kind of evidence carries it.
   not uniform): reproduced for model and task. Sonnet 5.5 learns on Hex, Haiku 5.5 on neither
   game, and Sonnet's Hex gain does not carry over to Go. Transfer is only weakly tested: OOD is
   4 fixed Hex games per checkpoint, and on 5×5 Go the GNU Go levels barely differ.
-- **Finding 2** (the best performer is not the most plastic): not reproduced. Our data show it only
-  through GLM's failed checkpoint 0; a probe found a candidate model for a real test (section 9).
+- **Finding 2** (the best performer is not the most plastic): reproduced in a probe on Hex,
+  with one Opus 5.5 lineage against a harder held-out opponent. Opus starts 24 points above
+  Sonnet 5.5, Sonnet gains 29 points to Opus's 8, and by checkpoints 3–5 the two are level
+  (section 9). In the main runs it shows only through GLM's failed checkpoint 0.
 
 ## What we found, in order of confidence
 
@@ -152,15 +155,32 @@ GLM reflection wrote a one-line off-by-one into its search tool and took held-ou
 to 0 %; a model-free replay with the line fixed scores 12/12. The next reflection fixed a
 different bug, called it the root cause, and never looked at the filter again.
 
-**Finding 2 of the paper** (probe: an analysis of our runs at no API cost, then one paid
-screening). Our data reproduce it only through this GLM effect: by P_sat GLM is the most "plastic" model and the worst performer, because its curve
-starts from games it could not finish. Under the flat-curve test the best Hex performer, Sonnet
-at effort high, is also the only reliable learner. A real test needs a model that starts above
-Sonnet and learns less. Opus 5.5 with an empty inventory won 10 of the 12 checkpoint-0 fresh Hex
-openings, where the four Sonnet lineages won 22 of 48 (Opus better on 7, worse on 1, p = 0.07;
-$3.19). But Sonnet already ends at 12/12, so at these opponent levels Hex leaves Opus almost no
-room to be overtaken. The test needs a harder held-out opponent: saved inventories of both models
-can be replayed against the 1M-node engine (about $110–160 in all, with two Opus lineages).
+**Finding 2 of the paper** (probe, $45.39; code and games not in the repo). The main runs
+reproduce it only through this GLM effect: by P_sat GLM is the most "plastic" model and the
+worst performer, because its curve starts from games it could not finish. A real test needs a
+model that starts above Sonnet. At the repo's opponent levels Opus 5.5 is that model (10 of 12
+checkpoint-0 Hex openings won, against 22 of 48 for Sonnet; $3.19), but Sonnet at effort high
+ends at 12/12, so Hex leaves no room to compare gains. The probe therefore played held-out ID
+against the alpha-beta engine at 1M nodes per move (the OOD level), on the plan D fresh
+openings. Training games and reflection stayed as in plan D: 8 training games per checkpoint,
+reflection at effort high, checkpoints 0–5.
+
+| Held-out ID vs 1M nodes | Checkpoint 0, empty inventory | Checkpoints 3–5 | Learning cost to checkpoint 5 |
+|---|---|---|---|
+| Sonnet 5.5 (2 plan D lineages, inventories replayed) | 38 % (60 openings) | 67 % (36 openings) | $6.47, $6.70 |
+| Opus 5.5 (1 new lineage) | 62 % (60 openings) | 69 % (36 openings) | $35.45 |
+
+- Opus starts higher: better on 20 openings, worse on 5 (sign test p = 0.004).
+- Sonnet rises 29 points (p = 0.002, openings as the unit); Opus rises 8 (p = 0.51).
+- By checkpoints 3–5 the two are level: Sonnet is better on 5 openings and worse on 8
+  (p = 0.58). The gap shrinks from 24 points to about 3 (one-sided p = 0.024).
+- Gain per $1,000 of learning cost: about 4,400 points for Sonnet, about 200 for Opus. Most of
+  that ratio is price: Opus's learning cost is five times Sonnet's.
+
+So the better starter is not the more plastic model, in points and per dollar. Limits: one Opus
+lineage; the 1M-node held-out level is a probe setting, not the repo's; Sonnet's curve replays
+inventories its lineages built in plan D, which is valid because held-out games never reach
+reflection; the gap test is one-sided, in the direction of the paper's claim.
 
 ### 10. Adapting to limits is part of plasticity, and it can backfire
 
@@ -202,8 +222,8 @@ every checkpoint, 2 games per cell ($3.99). Far too few games to measure drift i
 - **Go Sonnet is two lineages that disagree** (95 % vs 50 %); a third lineage is the cheapest
   way to settle the Go model ranking.
 - **Training and OOD openings stayed fixed** in plan D; only held-out ID was made fresh.
-- **The paper's Finding 2** was only probed: the full test needs a harder held-out opponent.
-- **No chess or NetHack**; Opus only probed.
+- **The paper's Finding 2** rests on one Opus lineage, in a probe whose code is not in the repo.
+- **No chess or NetHack**; Opus only in probes.
 - **Thinking from the original runs is lost**; the replay is a proxy.
 - **No per-move failure judge**, so the paper's absent / missed / used breakdown is
   approximated per game.
@@ -213,6 +233,5 @@ every checkpoint, 2 games per cell ($3.99). Far too few games to measure drift i
 - A third Go Sonnet lineage at effort high (about $18–21 to checkpoint 10).
 - Concurrent feedback and no-feedback lineages (about $15–30).
 - A stricter test 5 that makes the reflector spend its budget without records (about $15).
-- A test of the paper's Finding 2: two Opus 5.5 lineages plus replays against the 1M-node
-  engine (about $110–160).
+- A second Opus 5.5 lineage for the Finding 2 probe (about $12–15).
 - The drift experiment with harder Hex opponents (about $130 for two Opus lineages).
