@@ -151,6 +151,24 @@ configs:
   data_files:
   - split: train
     path: traces/games/hex_sonnet_medium_fresh_rep2/*.jsonl
+- config_name: probe_finding2_runs
+  data_files: probes/finding2/data/runs.jsonl
+- config_name: probe_finding2_checkpoints
+  data_files: probes/finding2/data/checkpoints.jsonl
+- config_name: probe_finding2_games
+  data_files: probes/finding2/data/games.jsonl
+- config_name: probe_finding2_replay_games
+  data_files: probes/finding2/data/replay_games.jsonl
+- config_name: probe_finding2_reflections
+  data_files: probes/finding2/data/reflections.jsonl
+- config_name: probe_finding2_inventories
+  data_files: probes/finding2/data/inventories.jsonl
+- config_name: probe_finding2_calls
+  data_files: probes/finding2/data/calls.jsonl
+- config_name: traces_probe_finding2
+  data_files:
+  - split: train
+    path: probes/finding2/traces/*/*.jsonl
 ---
 
 # Agent Plasticity on 6x6 Hex and 5x5 Go: Claude Sonnet 5.5, Haiku 5.5 and GLM 5.3 traces
@@ -211,6 +229,26 @@ Runs (via OpenRouter; games always at effort `medium`):
 GLM 5.3 (`z-ai/glm-5.3`) ran through OpenRouter's chat-completions API with 2 games at a time per
 lineage (Claude: 4); all four GLM lineages were stopped by the API key's spending limit and resumed,
 replaying the unfinished checkpoint.
+
+## Finding 2 probe (`probes/finding2/`)
+
+A probe of the paper's Finding 2 (the best performer is not the most plastic), run outside the
+repository's scripts; the result is in `FINDINGS.md`, section 9, of the source repository. Held-out
+ID games are played against the alpha-beta engine at 1M nodes per move (the OOD level) on the
+`hex_sonnet_high_fresh` fresh openings; everything else is as in those runs. $45.39 in all
+($3.19 of an earlier screening at the usual levels is not here: its games were not kept).
+
+| Config | Rows | One row is |
+|---|---|---|
+| `probe_finding2_runs`, `_checkpoints`, `_games`, `_reflections`, `_inventories`, `_calls` | 1, 6, 84, 5, 27, 687 | as in the main tables, for `probe_f2_opus_lineage`: Opus 5.5 (`anthropic/claude-opus-5.5`), checkpoints 0–5, 8 training games per checkpoint, reflection at effort high, held-out ID only at checkpoints 3–5, no OOD games |
+| `probe_finding2_replay_games` | 300 | a held-out ID game vs 1M nodes with a saved or an empty inventory; `inventory`, `inventory_checkpoint` and `opening_bank_checkpoint` say which |
+| `traces_probe_finding2` | 389 | every probe game and reflection in Pi's session format |
+
+`replay_games` holds six `run_id`s: `probe_f2_sonnet_replay_1` / `_2` (the saved inventories of
+`hex_sonnet_high_fresh` / `_rep2`, checkpoints 0–5), `probe_f2_opus_empty_cp0` (Opus, empty
+inventory, checkpoint-0 openings), and the start test on the 48 fresh openings of checkpoints
+6–9, which no run had played at 1M: `probe_f2_opus_empty_start` (Opus, one game per opening)
+and `probe_f2_sonnet_empty_start_1` / `_2` (Sonnet, two games per opening).
 
 ## Main result
 
@@ -322,11 +360,13 @@ Details: `reports/TECHNICAL_REPORT.md` and reports 12, 15, 21–25 in the source
 
 ## Privacy and provenance
 
-Local file paths are replaced by `<repo>` and `/Users/<user>`. The export script stops if
+Local file paths are replaced by `<repo>` and `/Users/<user>` (in the Finding 2 probe also
+`<probe>` and `<tmp>`, the session folders it ran from). The export script stops if
 any string looks like an API key, bearer token or email address. No personal data is in
 the games; the model only saw game states and its own files.
 
-Model outputs are from Claude Sonnet 5.5 and Claude Haiku 5.5 (Anthropic) and GLM 5.3 (Z.ai), accessed
+Model outputs are from Claude Sonnet 5.5, Claude Haiku 5.5 and, in the Finding 2 probe, Claude
+Opus 5.5 (Anthropic) and GLM 5.3 (Z.ai), accessed
 through OpenRouter; check the providers' terms before reuse.
 
 ## Citation

@@ -4,7 +4,7 @@ A short read of what this reproduction found. Methods, every table and the limit
 [reports/TECHNICAL_REPORT.md](reports/TECHNICAL_REPORT.md); every number comes from reports 01–25 in
 [reports/](reports/). Data: the Hugging Face dataset `Eve39570/agent-plasticity-hex-go` (8,474
 games, 276 reflections, 384 ablation and fresh-opening games). Total API spend: $282.36, plus
-$49.38 for two paid probes whose code and games are not in the repo (marked "probe" below):
+$49.38 for two paid probes whose code is not in the repo (marked "probe" below):
 Finding 2 ($45.39) and drift ($3.99).
 
 ## The question
@@ -155,7 +155,7 @@ GLM reflection wrote a one-line off-by-one into its search tool and took held-ou
 to 0 %; a model-free replay with the line fixed scores 12/12. The next reflection fixed a
 different bug, called it the root cause, and never looked at the filter again.
 
-**Finding 2 of the paper** (probe, $45.39; code and games not in the repo). The main runs
+**Finding 2 of the paper** (probe, $45.39; code not in the repo, games and traces in the dataset under `probes/finding2/`). The main runs
 reproduce it only through this GLM effect: by P_sat GLM is the most "plastic" model and the
 worst performer, because its curve starts from games it could not finish. A real test needs a
 model that starts above Sonnet. At the repo's opponent levels Opus 5.5 is that model (10 of 12
