@@ -169,6 +169,24 @@ configs:
   data_files:
   - split: train
     path: probes/finding2/traces/*/*.jsonl
+- config_name: probe_stream_runs
+  data_files: probes/stream/data/runs.jsonl
+- config_name: probe_stream_checkpoints
+  data_files: probes/stream/data/checkpoints.jsonl
+- config_name: probe_stream_games
+  data_files: probes/stream/data/games.jsonl
+- config_name: probe_stream_hex_eval_games
+  data_files: probes/stream/data/hex_eval_games.jsonl
+- config_name: probe_stream_reflections
+  data_files: probes/stream/data/reflections.jsonl
+- config_name: probe_stream_inventories
+  data_files: probes/stream/data/inventories.jsonl
+- config_name: probe_stream_calls
+  data_files: probes/stream/data/calls.jsonl
+- config_name: traces_probe_stream
+  data_files:
+  - split: train
+    path: probes/stream/traces/*/*.jsonl
 ---
 
 # Agent Plasticity on 6x6 Hex and 5x5 Go: Claude Sonnet 5.5, Haiku 5.5 and GLM 5.3 traces
@@ -249,6 +267,27 @@ ID games are played against the alpha-beta engine at 1M nodes per move (the OOD 
 inventory, checkpoint-0 openings), and the start test on the 48 fresh openings of checkpoints
 6–9, which no run had played at 1M: `probe_f2_opus_empty_start` (Opus, one game per opening)
 and `probe_f2_sonnet_empty_start_1` / `_2` (Sonnet, two games per opening).
+
+## Hex → Go stream probe (`probes/stream/`)
+
+A continual-learning probe after
+[Are Self-Evolving Agents Continual Learners?](https://arxiv.org/abs/2610.25858) (Chen et al., 2026),
+run outside the repository's scripts and not written up yet. Two Go lineages (Sonnet 5.5, reflection
+at effort high, checkpoints 0–5, 8 training games per checkpoint) start from the checkpoint-10
+inventory of a Hex lineage instead of an empty one: `probe_stream_high_1` from
+`hex_sonnet_high_fresh`, `probe_stream_high_2` from `hex_sonnet_high_fresh_rep2`. Go held-out ID
+(20 games) is played only at checkpoints 0, 3 and 5, with no OOD games. At the same checkpoints the
+current inventory also plays 24 held-out Hex games (fresh openings of banks 9 and 10, usual levels) to
+measure forgetting; they are hidden from reflection and not in the learning cost. $15.63 in all.
+
+| Config | Rows | One row is |
+|---|---|---|
+| `probe_stream_runs`, `_checkpoints`, `_games`, `_reflections`, `_inventories`, `_calls` | 2, 12, 216, 10, 78, 4,000 | as in the main tables (Go); `runs.inventory_source` names the starting Hex inventory |
+| `probe_stream_hex_eval_games` | 144 | a held-out Hex game played with the stream's inventory at checkpoint `inventory_checkpoint` (0, 3 or 5); `opening_bank` is 9 or 10 |
+| `traces_probe_stream` | 370 | every stream game (Go and Hex) and reflection in Pi's session format |
+
+`probe_stream_calls` also holds the Hex eval games' calls; their cost is in `billed_usd`, not in
+`learning_cost_usd`.
 
 ## Main result
 
