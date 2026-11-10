@@ -187,6 +187,26 @@ configs:
   data_files:
   - split: train
     path: probes/stream/traces/*/*.jsonl
+- config_name: probe_pressure_runs
+  data_files: probes/pressure/data/runs.jsonl
+- config_name: probe_pressure_checkpoints
+  data_files: probes/pressure/data/checkpoints.jsonl
+- config_name: probe_pressure_games
+  data_files: probes/pressure/data/games.jsonl
+- config_name: probe_pressure_hex_eval_games
+  data_files: probes/pressure/data/hex_eval_games.jsonl
+- config_name: probe_pressure_reflections
+  data_files: probes/pressure/data/reflections.jsonl
+- config_name: probe_pressure_inventories
+  data_files: probes/pressure/data/inventories.jsonl
+- config_name: probe_pressure_calls
+  data_files: probes/pressure/data/calls.jsonl
+- config_name: probe_pressure_budget_replay
+  data_files: probes/pressure/data/budget_replay.jsonl
+- config_name: traces_probe_pressure
+  data_files:
+  - split: train
+    path: probes/pressure/traces/*/*.jsonl
 ---
 
 # Agent Plasticity on 6x6 Hex and 5x5 Go: Claude Sonnet 5.5, Haiku 5.5 and GLM 5.3 traces
@@ -288,6 +308,26 @@ measure forgetting; they are hidden from reflection and not in the learning cost
 
 `probe_stream_calls` also holds the Hex eval games' calls; their cost is in `billed_usd`, not in
 `learning_cost_usd`.
+
+## Stability-pressure probe (`probes/pressure/`)
+
+The stream probe above with one change, so that Go learning has to touch what holds Hex: the inventory
+has fixed shared slots. It may contain only `memory/playbook.md`, `tools/engine.py` and the two tracking
+files. At checkpoint 0 the Hex inventory is renamed into those slots (file names and the references
+inside the files; nothing else changes). The rule is in the reflection prompt and both validators
+enforce it. Reflection is not told that the inventory is also used for Hex. Two Sonnet 5.5 lineages
+(reflection at effort high, checkpoints 0–3, 8 training games per checkpoint): `probe_pressure_high_1`
+from `hex_sonnet_high_fresh`, `probe_pressure_high_2` from `hex_sonnet_high_fresh_rep2`. Go held-out ID
+(20 games) at checkpoints 0 and 3; 24 held-out Hex games at checkpoints 0–3, hidden from reflection and
+not in the learning cost. `probe_pressure_high_2` was resumed once at checkpoint 2 after its game
+workers hung on dead connections (no calls were lost). $12.84 in all.
+
+| Config | Rows | One row is |
+|---|---|---|
+| `probe_pressure_runs`, `_checkpoints`, `_games`, `_reflections`, `_inventories`, `_calls` | 2, 8, 144, 6, 32, 3,479 | as in the main tables (Go); `runs.inventory_source` names the starting Hex inventory |
+| `probe_pressure_hex_eval_games` | 192 | a held-out Hex game played with the lineage's inventory at checkpoint `inventory_checkpoint` (0–3); `opening_bank` is 9 or 10 |
+| `traces_probe_pressure` | 342 | every probe game (Go and Hex) and reflection in Pi's session format |
+| `probe_pressure_budget_replay` | 24 | one of `probe_pressure_high_2`'s Hex eval openings replayed offline by the inventory's tool alone (no model) against the same engine: checkpoint 0's code at 40,000 playouts, checkpoint 1's code at its new default (30,000) and at 40,000, next to the recorded scores |
 
 ## Main result
 
