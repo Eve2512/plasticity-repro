@@ -4,8 +4,9 @@ A short read of what this reproduction found. Methods, every table and the limit
 [reports/TECHNICAL_REPORT.md](reports/TECHNICAL_REPORT.md); every number comes from reports 01–25 in
 [reports/](reports/). Data: the Hugging Face dataset `Eve39570/agent-plasticity-hex-go` (8,474
 games, 276 reflections, 384 ablation and fresh-opening games). Total API spend: $282.36, plus
-$49.38 for two paid probes whose code is not in the repo (marked "probe" below):
-Finding 2 ($45.39) and drift ($3.99).
+$77.85 for four paid probes whose code is not in the repo (marked "probe" below):
+Finding 2 ($45.39), drift ($3.99), the Hex → Go stream ($15.63) and its shared-files variant
+($12.84).
 
 ## The question
 
@@ -213,6 +214,58 @@ every checkpoint, 2 games per cell ($3.99). Far too few games to measure drift i
 - Opus won 2/2 Hex games before any reflection: at these opponent levels Hex may be at
   ceiling, and a real drift run would need harder Hex opponents.
 - Full experiment: about $65 per lineage, $130 for two.
+
+## Probe: Hex → Go stream, with and without shared files
+
+After Chen et al. (arXiv:2610.25858): does learning a second game cost the first? Each lineage is
+a Sonnet 5.5 Go lineage (effort high, 8 training games per checkpoint) whose checkpoint 0 starts
+from the checkpoint-10 inventory of a Hex lineage (`hex_sonnet_high_fresh`, `_rep2`). At set
+checkpoints the current inventory also plays 24 held-out Hex games (fresh openings, banks 9 and
+10, usual levels), hidden from reflection and not part of the learning cost. Two lineages per
+arm; openings are the unit, paired sign tests. Code is private (scratchpad); the traces are on
+the HF dataset under `probes/stream/` and `probes/pressure/`.
+
+**Free stream** (checkpoints 0–5, $15.63). The inventory may grow any files.
+
+- Hex did not move: 23/23/23 and 22/22/22 of 24 at checkpoints 0/3/5. Go reflection only added
+  files (a Go playbook, `go_mcts.py`, a README that routes each game); the Hex playbook and tool
+  are byte-identical at checkpoint 5. The Hex actor relays a deterministic tool, so this
+  stability is structural, not tested.
+- Go learned: 58 % → 92 % at checkpoint 3 (8 openings better, 0 worse, p 0.008).
+- No interference at the start: Go at checkpoint 0 with the Hex inventory 58 % vs 62 % with an
+  empty one (four old Go Sonnet lineages, 1/4, p 0.38).
+- Forward transfer: at checkpoint 3 the stream beat the old Go high lineages, 92 % vs 60 % (11/0,
+  p 0.001); at checkpoint 5 90 % vs 75 % (8/2, p 0.11). Both stream lineages built an MCTS tool at
+  checkpoint 1, the pattern of their Hex tool. The old lineages ran earlier, so drift is
+  not ruled out.
+
+**Shared files** (checkpoints 0–3, $12.84). The inventory may hold only `memory/playbook.md`,
+`tools/engine.py` and the two tracking files; the Hex inventory is renamed into these slots at
+checkpoint 0, and the prompt and both validators enforce the rule. Reflection is not told that
+Hex still matters.
+
+| | Hex, checkpoints 0 → 1 → 2 → 3 (of 24) | Go, checkpoint 0 → 3 |
+|---|---|---|
+| Lineage 1 | 23 → 23 → 23 → 23 | 45 % → 90 % |
+| Lineage 2 | 22 → 18 → 19 → 19 | 50 % → 75 % |
+| Pooled | 94 % → 88 % (0/3, p 0.25) | 48 % → 82 % (10/0, p 0.002) |
+
+- Lineage 1 added Go functions next to the Hex ones and left the Hex entry point alone.
+- Lineage 2's first Go reflection made the Hex entry point `choose_move_from_api` serve both
+  games (board text with "komi" → Go) and rewrote the playbook's quick start without the Hex
+  budget argument, so Hex silently fell back to 30,000 playouts instead of 40,000.
+- An offline replay (tool only, no model, free) reproduces the recorded games on 24/24 openings
+  at checkpoint 0 and 23/24 at checkpoint 1. Checkpoint 1's code wins 19/24 at its new default
+  and 22/24 with 40,000 playouts. So the budget change explains 3 of the 4 lost openings; in the
+  fourth the actor played three moves itself instead of using the tool.
+- Against the free stream at checkpoint 3: Hex 88 % vs 94 % (p 0.25), Go 82 % vs 92 % (0/4,
+  p 0.12).
+- Go at checkpoint 0 with the renamed Hex inventory started lower than with an empty one: 48 %
+  vs 62 % (0/8, p 0.008; the free stream's unrenamed inventory gave 58 %). Cause not checked.
+
+Reading: with separate files there was no forgetting to measure. With shared files, one lineage
+of two lost Hex, and it lost it through a changed shared default (interface interference), not
+through deleted Hex knowledge. Pooled, the loss is not significant at n = 2.
 
 ## What failed or stayed open
 
