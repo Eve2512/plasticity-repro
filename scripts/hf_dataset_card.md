@@ -315,18 +315,19 @@ The stream probe above with one change, so that Go learning has to touch what ho
 has fixed shared slots. It may contain only `memory/playbook.md`, `tools/engine.py` and the two tracking
 files. At checkpoint 0 the Hex inventory is renamed into those slots (file names and the references
 inside the files; nothing else changes). The rule is in the reflection prompt and both validators
-enforce it. Reflection is not told that the inventory is also used for Hex. Two Sonnet 5.5 lineages
+enforce it. Reflection is not told that the inventory is also used for Hex. Three Sonnet 5.5 lineages
 (reflection at effort high, checkpoints 0–3, 8 training games per checkpoint): `probe_pressure_high_1`
-from `hex_sonnet_high_fresh`, `probe_pressure_high_2` from `hex_sonnet_high_fresh_rep2`. Go held-out ID
+and `probe_pressure_high_3` from `hex_sonnet_high_fresh`, `probe_pressure_high_2` from
+`hex_sonnet_high_fresh_rep2`. Go held-out ID
 (20 games) at checkpoints 0 and 3; 24 held-out Hex games at checkpoints 0–3, hidden from reflection and
 not in the learning cost. `probe_pressure_high_2` was resumed once at checkpoint 2 after its game
-workers hung on dead connections (no calls were lost). $12.84 in all.
+workers hung on dead connections (no calls were lost). $19.72 in all.
 
 | Config | Rows | One row is |
 |---|---|---|
-| `probe_pressure_runs`, `_checkpoints`, `_games`, `_reflections`, `_inventories`, `_calls` | 2, 8, 144, 6, 32, 3,479 | as in the main tables (Go); `runs.inventory_source` names the starting Hex inventory |
-| `probe_pressure_hex_eval_games` | 192 | a held-out Hex game played with the lineage's inventory at checkpoint `inventory_checkpoint` (0–3); `opening_bank` is 9 or 10 |
-| `traces_probe_pressure` | 342 | every probe game (Go and Hex) and reflection in Pi's session format |
+| `probe_pressure_runs`, `_checkpoints`, `_games`, `_reflections`, `_inventories`, `_calls` | 3, 12, 216, 9, 48, 4,922 | as in the main tables (Go); `runs.inventory_source` names the starting Hex inventory |
+| `probe_pressure_hex_eval_games` | 288 | a held-out Hex game played with the lineage's inventory at checkpoint `inventory_checkpoint` (0–3); `opening_bank` is 9 or 10 |
+| `traces_probe_pressure` | 513 | every probe game (Go and Hex) and reflection in Pi's session format |
 | `probe_pressure_budget_replay` | 24 | one of `probe_pressure_high_2`'s Hex eval openings replayed offline by the inventory's tool alone (no model) against the same engine: checkpoint 0's code at 40,000 playouts, checkpoint 1's code at its new default (30,000) and at 40,000, next to the recorded scores |
 
 ## Main result
