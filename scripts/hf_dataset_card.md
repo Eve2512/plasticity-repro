@@ -207,6 +207,24 @@ configs:
   data_files:
   - split: train
     path: probes/pressure/traces/*/*.jsonl
+- config_name: probe_warned_runs
+  data_files: probes/warned/data/runs.jsonl
+- config_name: probe_warned_checkpoints
+  data_files: probes/warned/data/checkpoints.jsonl
+- config_name: probe_warned_games
+  data_files: probes/warned/data/games.jsonl
+- config_name: probe_warned_hex_eval_games
+  data_files: probes/warned/data/hex_eval_games.jsonl
+- config_name: probe_warned_reflections
+  data_files: probes/warned/data/reflections.jsonl
+- config_name: probe_warned_inventories
+  data_files: probes/warned/data/inventories.jsonl
+- config_name: probe_warned_calls
+  data_files: probes/warned/data/calls.jsonl
+- config_name: traces_probe_warned
+  data_files:
+  - split: train
+    path: probes/warned/traces/*/*.jsonl
 ---
 
 # Agent Plasticity on 6x6 Hex and 5x5 Go: Claude Sonnet 5.5, Haiku 5.5 and GLM 5.3 traces
@@ -329,6 +347,22 @@ workers hung on dead connections (no calls were lost). $19.72 in all.
 | `probe_pressure_hex_eval_games` | 288 | a held-out Hex game played with the lineage's inventory at checkpoint `inventory_checkpoint` (0–3); `opening_bank` is 9 or 10 |
 | `traces_probe_pressure` | 513 | every probe game (Go and Hex) and reflection in Pi's session format |
 | `probe_pressure_budget_replay` | 24 | one of `probe_pressure_high_2`'s Hex eval openings replayed offline by the inventory's tool alone (no model) against the same engine: checkpoint 0's code at 40,000 playouts, checkpoint 1's code at its new default (30,000) and at 40,000, next to the recorded scores |
+
+## Warned shared-files probe (`probes/warned/`)
+
+The stability-pressure probe above with one more line in the reflection prompt: "This inventory is
+still also used to play 6x6 Hex (those games are not shown here): keep the Hex tool and the Hex notes
+working." Two Sonnet 5.5 lineages (reflection at effort high, 8 Go training games, checkpoints 0–1, so
+one reflection): `probe_warned_high_1` from `hex_sonnet_high_fresh`, `probe_warned_high_2` from
+`hex_sonnet_high_fresh_rep2`. No Go held-out games; 24 held-out Hex games at checkpoint 1 only, hidden
+from reflection and not in the learning cost. Checkpoint 0's Hex score is that of
+`probe_pressure_high_1` / `_2`, which start from the same inventories with a deterministic tool. $3.96 in all.
+
+| Config | Rows | One row is |
+|---|---|---|
+| `probe_warned_runs`, `_checkpoints`, `_games`, `_reflections`, `_inventories`, `_calls` | 2, 4, 32, 2, 16, 928 | as in the main tables (Go); `runs.inventory_source` names the starting Hex inventory |
+| `probe_warned_hex_eval_games` | 48 | a held-out Hex game played with the lineage's checkpoint-1 inventory; `opening_bank` is 9 or 10 |
+| `traces_probe_warned` | 82 | every probe game (Go and Hex) and reflection in Pi's session format |
 
 ## Main result
 

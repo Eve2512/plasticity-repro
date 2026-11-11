@@ -4,9 +4,9 @@ A short read of what this reproduction found. Methods, every table and the limit
 [reports/TECHNICAL_REPORT.md](reports/TECHNICAL_REPORT.md); every number comes from reports 01–25 in
 [reports/](reports/). Data: the Hugging Face dataset `Eve39570/agent-plasticity-hex-go` (8,474
 games, 276 reflections, 384 ablation and fresh-opening games). Total API spend: $282.36, plus
-$84.73 for four paid probes whose code is not in the repo (marked "probe" below):
-Finding 2 ($45.39), drift ($3.99), the Hex → Go stream ($15.63) and its shared-files variant
-($19.72).
+$88.69 for four paid probes whose code is not in the repo (marked "probe" below):
+Finding 2 ($45.39), drift ($3.99), the Hex → Go stream ($15.63) and its shared-files variants
+($19.72 plain, $3.96 warned).
 
 ## The question
 
@@ -278,6 +278,24 @@ reflector's choice, not the start. Pooled, the Hex loss is significant (p 0.008 
 checkpoint 3), while Go still learns: the plasticity–stability trade-off of Chen et al.
 appears once Go learning must share storage with Hex and nothing tells the reflector that Hex
 still counts.
+
+Why lineage 3 deleted Hex: after the Go training games, the first reflections of lineages 1 and 3
+both concluded that the game had changed from Hex to Go. Lineage 1 then weighed keeping the Hex
+code "since the games might come back" and kept it; lineage 3 replaced the engine directly and
+never raised the question.
+
+**Warned shared files** (checkpoints 0–1, $3.96). The same rule plus one line in the reflection
+prompt: the inventory is still also used to play 6x6 Hex, so keep the Hex tool and notes working.
+One lineage from each Hex inventory, one reflection, 24 Hex games at checkpoint 1 (checkpoint 0
+is known: same inventories, deterministic tool).
+
+- Both lineages kept the Hex code and the Hex budget in the playbook, and added Go behind a
+  game check in the shared entry point.
+- Hex at checkpoint 1: 22/24 and 20/24, 88 % against 72 % for the three unwarned lineages at
+  checkpoint 1 (13 openings better, 2 worse, p 0.007), and against 94 % at their own checkpoint
+  0 (0/3, p 0.25).
+- So one sentence that the old task still counts prevented the deletion here. It is n = 2 at
+  one checkpoint, and two of three unwarned lineages kept the Hex code too.
 
 ## What failed or stayed open
 
