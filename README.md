@@ -21,6 +21,27 @@ paper's equations (Section 2) and appendix (Appendix B settings, Appendix I prom
 
 **Short read of the results: [FINDINGS.md](FINDINGS.md).** Full write-up: [reports/TECHNICAL_REPORT.md](reports/TECHNICAL_REPORT.md).
 
+## The reproduction in two figures
+
+**Scores at each checkpoint** (our version of the paper's Fig. 3 and 9).
+
+![Checkpoint scores on 6×6 Hex and 5×5 Go for training, held-out ID and held-out OOD games](docs/figures/checkpoint_scores.png)
+
+Each line pools two lineages. Rows: Hex with fixed held-out openings, Hex with new held-out
+openings at every checkpoint ([report 24](reports/24_fresh_openings.md)), and 5×5 Go. Sonnet 5.5
+at reflection effort high is the only condition that learns, and only on Hex. Haiku 5.5 stays
+flat, GLM 5.3 does not improve after checkpoint 1, and no Go condition shows a pooled learning curve.
+
+**Held-out score against learning cost, and P_sat** (our version of the paper's Fig. 1).
+
+![Held-out ID score against cumulative learning cost, and plasticity to saturation per condition](docs/figures/learning_cost_psat.png)
+
+Hex and Go are averaged with equal weight, as the paper averages its games. By the paper's rules
+GLM 5.3 has the highest P_sat, but the rise is one jump from a checkpoint 0 where it could not
+finish its games; fitted from checkpoint 1 its P_sat is 0
+([report 21](reports/21_glm_vs_claude.md)). The values here are fitted to the pooled Hex + Go
+curve, so they differ from the per-lineage values in the reports.
+
 ## Scope
 
 | Part | Paper | This repo |
