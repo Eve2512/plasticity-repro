@@ -1,163 +1,124 @@
 # Agent Plasticity: reproduction and limitation tests
 
-A scaled-down reproduction of
-[Agent Plasticity: Measuring Self-Improvement Through Experience](https://arxiv.org/abs/2610.08902)
-(Singh et al., Meta Superintelligence Labs / UC Berkeley, October 2026).
+![Checkpoint scores on 6×6 Hex and 5×5 Go for training, held-out ID and held-out OOD games](docs/figures/checkpoint_scores.png)
 
+This code tries to reproduce the October 2026 paper
+[Agent Plasticity: Measuring Self-Improvement Through Experience](https://arxiv.org/abs/2610.08902)
+(Singh et al., Meta Superintelligence Labs / UC Berkeley), at small scale, on 6×6 Hex and 5×5 Go.
 
 TLDR: they studied self-improvement in a controlled setting where agents amortize
 past experience into reusable artifacts that are inherited by future instances. they measured performance on training  at specific checkpoints and held-out environment interactions while accounting for learning cost. 
 The whole crux of this paper is that they introduce agent plasticity, the efficiency with which an agent converts 
 experience into gains in future held-out performance.
 
+The model's weights stay frozen. It improves only through files it writes after each round of
+games (Python tools, notes, tracking files), and the next round's agents inherit them.
+**Agent plasticity** is the held-out score gain per $1,000 of learning cost. The authors did not
+release code, so the protocol here is rebuilt from the paper's equations (Section 2), settings
+(Appendix B) and prompts (Appendix I).
 
+#### run
 
-The paper freezes a model's weights and lets it improve only through persistent
-artifacts (Python tools, notes, skills) that it writes after each round of games.
-**Agent plasticity** is the held-out score gain per $1,000 of learning cost.
+```
+$ uv sync
+$ uv run pytest
+177 passed in 100.03s (0:01:40)
+```
 
-The authors did not release code. This repository rebuilds the protocol from the
-paper's equations (Section 2) and appendix (Appendix B settings, Appendix I prompts).
+The scripted dry run plays a whole lineage with no API calls
+([report 06](reports/06_dry_run.md)):
 
-**Short read of the results: [FINDINGS.md](FINDINGS.md).** Full write-up: [reports/TECHNICAL_REPORT.md](reports/TECHNICAL_REPORT.md).
+```
+$ uv run python scripts/dry_run_hex.py
+```
 
-## The reproduction in two figures
+A real lineage needs an OpenRouter key in `.env`. This is one of the plan D lineages: Sonnet 5.5
+on Hex, reflection at effort high, checkpoints 0–10, with held-out openings new at every
+checkpoint. It stops before any call once the cap is billed:
 
-**Scores at each checkpoint** (our version of the paper's Fig. 3 and 9).
+```
+$ uv run python scripts/run_hex.py --game hex --model anthropic/claude-sonnet-5.5 --effort medium \
+    --reflect-effort high --rounds 10 --openings fresh --train 8 --id 12 --ood 4 --workers 4 \
+    --cap 12 --name hex_sonnet_high_fresh --yes
+6x6 Hex: anthropic/claude-sonnet-5.5 via openrouter, effort medium (reflection high), thinking display summarized, openings fresh
+checkpoints 0-10, games per checkpoint {'train': 8, 'id': 12, 'ood': 4}: 264 games + 10 reflections
+stops before any call once $12.00 is billed; 4 game(s) at once
+checkpoint 0
+  checkpoint_000_train_g01_red: finished, score 1
+  ...
+wrote reports/10_hex_sonnet_high_fresh.md
+{
+ "billed": 10.5985179,
+ "learning_cost": 12.245244,
+ "stopped": null
+}
+```
 
-![Checkpoint scores on 6×6 Hex and 5×5 Go for training, held-out ID and held-out OOD games](docs/figures/checkpoint_scores.png)
+Held-out ID went from 7/12 at checkpoint 0 to 12/12 at checkpoint 10, and the rise passes the
+flat-curve test (p = 0.046, [report](reports/10_hex_sonnet_high_fresh.md)). Every other run and
+analysis command is in [section 6 of the technical report](reports/TECHNICAL_REPORT.md#6-reproducing-this).
 
-Each line pools two lineages. Rows: Hex with fixed held-out openings, Hex with new held-out
-openings at every checkpoint ([report 24](reports/24_fresh_openings.md)), and 5×5 Go. Sonnet 5.5
-at reflection effort high is the only condition that learns, and only on Hex. Haiku 5.5 stays
-flat, GLM 5.3 does not improve after checkpoint 1, and no Go condition shows a pooled learning curve.
+#### results
 
-**Held-out score against learning cost, and P_sat** (our version of the paper's Fig. 1).
+Against the paper's findings:
+
+- **Finding 1** (self-improvement depends on model and task): reproduced. Sonnet 5.5 learns on
+  Hex only at reflection effort high (held-out ID 72 % → 88 % on new openings, p = 0.015 per
+  opening); Haiku 5.5 learns on neither game; no Go condition shows a pooled learning curve.
+- **Finding 2** (the best performer is not the most plastic): reproduced in one probe, with one
+  Opus 5.5 lineage against Sonnet 5.5 on Hex. In the main runs it shows only through GLM 5.3,
+  whose top P_sat comes from a checkpoint 0 where it could not finish its games.
 
 ![Held-out ID score against cumulative learning cost, and plasticity to saturation per condition](docs/figures/learning_cost_psat.png)
 
-Hex and Go are averaged with equal weight, as the paper averages its games. By the paper's rules
-GLM 5.3 has the highest P_sat, but the rise is one jump from a checkpoint 0 where it could not
-finish its games; fitted from checkpoint 1 its P_sat is 0
-([report 21](reports/21_glm_vs_claude.md)). The values here are fitted to the pooled Hex + Go
-curve, so they differ from the per-lineage values in the reports.
-
-## Scope
-
-| Part | Paper | This repo |
-|---|---|---|
-| Metrics (Eq. 2–5, bootstrap) | yes | **phase 1 done**, no API cost |
-| Harness (sandbox, reflection, validator, ledger) | not released | **phase 2: built, dry-run tested and run on Hex and 5×5 Go** |
-| Games | Chess, 5×5 Go, 6×6 Hex, NetHack | 6×6 Hex and 5×5 Go (GNU Go opponent, calibration in report 13) |
-| Models | 8 frontier models | Sonnet 5.5 and Haiku 5.5; GLM 5.3 in plan C (reports [20](reports/20_glm_tool_rewrite.md), [21](reports/21_glm_vs_claude.md)); Opus 5.5 probed only |
-| Checkpoints | 20 (NetHack 40) | 11 (checkpoints 0–10); one Haiku lineage 21 |
-| Learning cost per lineage | about $1,000–3,000 (chess) | $2–21 billed per lineage (whole project $282.36) |
-
-## Limitation tests
-
-1. Fit and threshold sensitivity of P_sat (10 pp rule, 90 % point, 3× extrapolation).
-2. Checkpoint noise: the paper runs one lineage per model; how stable is a P_sat ranking?
-3. Pricing dependence of P_sat.
-4. Consistency of the reported numbers with the stated game counts.
-5. (Phase 2) Experience versus compute: reflection with the same budget but no feedback
-   ([report 18](reports/18_experience_vs_compute.md)).
-6. (Phase 2) Artifact ablation: remove the inventory, or force its use
-   ([report 17](reports/17_artifact_ablation.md)).
-
-## Results so far
-
-Full write-up with methods and limitations: [reports/TECHNICAL_REPORT.md](reports/TECHNICAL_REPORT.md).
-
-| Lineage | Model | Reflection effort | Held-out ID, early → late | Report |
+| Lineages (two each) | Model | Reflection effort | Held-out ID, early → late | Report |
 |---|---|---|---|---|
-| `lineage_a2`, `sonnet_medium_rep2` | Sonnet 5.5 | medium | 59 % → 65 % (p = 0.32) | [10](reports/10_lineage_a2.md), [12](reports/12_comparison.md) |
-| `sonnet_reflect_high`, `..._rep2` | Sonnet 5.5 | high | 73 % → **83 %** (p = 0.04) | [12](reports/12_comparison.md) |
-| `haiku_r20` (21 checkpoints) | Haiku 5.5 | medium | 32 % → 31 % (no plasticity) | [12](reports/12_comparison.md) |
-| `hex_haiku_medium_rep2` | Haiku 5.5 | medium | 50 % → 38 % (no plasticity) | [10](reports/10_hex_haiku_medium_rep2.md) |
-| `hex_haiku_reflect_high`, `..._rep2` | Haiku 5.5 | high | 44 % → 40 % (no plasticity) | [15](reports/15_model_game_comparison.md) |
-| `go_sonnet_reflect_high`, `..._rep2` (Go) | Sonnet 5.5 | high | 57 % → 60 % (p = 0.57; one lineage 75 % → 90 %) | [15](reports/15_model_game_comparison.md) |
-| `go_haiku_reflect_high`, `..._rep2` (Go) | Haiku 5.5 | high | 55 % → 47 % (no plasticity) | [15](reports/15_model_game_comparison.md) |
-| `go_sonnet_medium`, `..._rep2` (Go) | Sonnet 5.5 | medium | 60 % → 61 % (no plasticity) | [22](reports/22_go_effort.md) |
-| `go_haiku_medium`, `..._rep2` (Go) | Haiku 5.5 | medium | 47 % → 52 % (p = 0.36) | [22](reports/22_go_effort.md) |
-| `hex_sonnet_high_fresh`, `..._rep2` (new held-out openings each checkpoint) | Sonnet 5.5 | high | 72 % → **88 %** (p = 0.015 per opening) | [24](reports/24_fresh_openings.md) |
-| `hex_sonnet_medium_fresh`, `..._rep2` (as above) | Sonnet 5.5 | medium | 57 % → 56 % (p = 0.91 per opening) | [24](reports/24_fresh_openings.md) |
+| Hex, new openings each checkpoint | Sonnet 5.5 | high | 72 % → **88 %** (p = 0.015 per opening) | [24](reports/24_fresh_openings.md) |
+| Hex, new openings each checkpoint | Sonnet 5.5 | medium | 57 % → 56 % (p = 0.91) | [24](reports/24_fresh_openings.md) |
+| Hex, fixed openings | Sonnet 5.5 | high | 73 % → 83 % (p = 0.04) | [12](reports/12_comparison.md) |
+| Hex, fixed openings | Sonnet 5.5 | medium | 59 % → 65 % (p = 0.32) | [12](reports/12_comparison.md) |
+| Hex | Haiku 5.5 | high | 44 % → 40 % | [15](reports/15_model_game_comparison.md) |
+| Go | Sonnet 5.5 | high | 57 % → 60 % (p = 0.57; one lineage 75 % → 90 %) | [15](reports/15_model_game_comparison.md) |
+| Go | Sonnet 5.5 | medium | 60 % → 61 % | [22](reports/22_go_effort.md) |
+| Go | Haiku 5.5 | high | 55 % → 47 % | [15](reports/15_model_game_comparison.md) |
 
-With two lineages per condition, high-effort reflection ends at 83 % held-out ID against
-65 % for medium over checkpoints 4–10 (z = 3.75, p = 0.0002), from the same starting point; counted
-per opening, since later checkpoints replay the same held-out games, high effort is better on 10 of 12
-openings and worse on 1 (sign test p = 0.012, [report 23](reports/23_repeated_games.md)). Re-run with
-held-out openings new at every checkpoint, so no held-out game repeats, high effort is better on 46 of 84
-openings and worse on 6 over checkpoints 4–10 (sign test p = 1e-08, [report 24](reports/24_fresh_openings.md)),
-and its early → late gain holds on openings it had never played. At medium effort the
-reflector rarely read its game logs and wrote at most one version of a tool; at high effort it revised
-its code and the actor used it in most games. Phase 1 (reports 01–04) found that a single
-lineage's P_sat is noisy and that the paper's 10-point rule alone lets false rises
-through; both shaped how these results are tested.
+Early → late is checkpoints 0–3 → 4–10 for Hex Sonnet and 0–2 → 3–10 for the rest. The gain
+lives in the saved tools (removing the final inventory drops held-out ID from 92 % to about 52 %,
+[report 17](reports/17_artifact_ablation.md)), and the tools come from the game records (without
+records the reflector builds none, [report 18](reports/18_experience_vs_compute.md)). The
+everything-in-one-place read is [FINDINGS.md](FINDINGS.md), including the probes (Finding 2, a
+Hex → Go stream with and without shared files); methods and every table are in
+[reports/TECHNICAL_REPORT.md](reports/TECHNICAL_REPORT.md).
 
-Early → late is checkpoints 0–3 → 4–10 for the Hex Sonnet rows, 0–9 → 10–20 for
-`haiku_r20`, and 0–2 → 3–10 for the rest (report 15). Haiku at high effort stays flat on
-both games, so Haiku's flat result is not an effort artefact. On 5×5 Go the pooled Sonnet
-gain read 57 % → 71 % (p = 0.01) through checkpoint 7 and is gone at checkpoint 10. The two
-Go Sonnet lineages diverge: one reaches 90 % and passes the per-lineage flat-curve test
-(p = 0.019); the other forfeited 20 of 32 games on time at checkpoint 6, capped its own
-search, and sat at 15 % for checkpoints 7–9 before ending at 50 %. How agents adapt to their
-limits differs too: Sonnet moved play into a saved tool once games ran into the 32-call
-budget, while Haiku used more calls per game over time and kept submitting illegal Go moves.
-The effort result is a Hex result: on Go, late held-out ID is 61 % at medium and 60 % at high
-for Sonnet (p = 0.69), and 52 % and 47 % for Haiku ([report 22](reports/22_go_effort.md)).
+This is much smaller than the paper: 2 games instead of 4, 3 models plus an Opus probe instead of
+8, 11 checkpoints instead of 20, and $2–21 billed per lineage instead of about $1,000–3,000.
+Most of the gap to the paper's setup is cost. A lot of the rest is guessing, because many
+details are not in the paper (see the open questions below).
 
-GLM 5.3 on Hex (plan C) shows a different way to fail: one reflection rewrote its search
-tool with a one-line bug, held-out ID fell from 75 % to 0 %, and the next reflection fixed a
-different bug it took for the cause ([report 20](reports/20_glm_tool_rewrite.md)).
-Against Claude ([report 21](reports/21_glm_vs_claude.md)), GLM lost most of its checkpoint-0
-games to the time and call limits and fixed that in one reflection. That jump alone passes
-the flat-curve test in three of its four lineages and gives its Go lineages P_sat of
-48,000–60,000, the highest in the project, although its held-out ID after checkpoint 1 is
-flat or falling (late: Hex 24 %, Go 46 %, against Sonnet's 83 % and 60 %). On 40 new Go
-held-out openings, both Claude models' final tools beat GLM's clearly (Sonnet 24 openings better,
-1 worse; Haiku 18 and 3), but Sonnet against Haiku is not established (13 and 8, p = 0.38), because
-the two Sonnet lineages score 95 % and 50 % ([report 25](reports/25_go_fresh_openings.md)).
+#### notes
 
-Limitation tests 5 and 6 (Hex, Sonnet, reflection effort high):
+My notes from the paper ([docs/PROTOCOL_NOTES.md](docs/PROTOCOL_NOTES.md) has all of them):
 
-| Test | Result | Report |
-|---|---|---|
-| 6: remove the final inventory | held-out ID 92 % / 92 % with tools, 54 % / 50 % without; forcing tool use adds nothing | [17](reports/17_artifact_ablation.md) |
-| 5: reflection without game records | the reflector builds no tools (4 of 50 calls per round); held-out ID stays at 62 % pooled | [18](reports/18_experience_vs_compute.md) |
-| 5: same openings, feedback vs none | level at checkpoints 0–2; from checkpoint 3 on, 38 games won only with feedback, 5 only without (p = 2.5e-07); per opening 8 better, 1 worse (p = 0.039, report 23) | [18](reports/18_experience_vs_compute.md) |
+- agent at checkpoint t = frozen model M + inventory I_t (Python tools, strategies, memory)
+- every acting episode starts in a fresh context; only the inventory persists
+- reflection: I_{t+1} = U_M(I_t, E_t^train), the same model acts and reflects
+    - updates must pass structural and executable checks; a rejected attempt keeps I_t
+    - 3 attempts in Go and Hex (6 in chess); rejected attempts count toward cost
+- splits: train (seen by reflection), held-out ID (same difficulty), held-out OOD (stronger
+  opponent); held-out games never reach reflection
+- score: S = 100 (W + 0.5 D) / N; an unfinished game is a loss
+- cumulative cost (Eq. 2): train plus reflection dollars before checkpoint t, C_0 = 0
+- average plasticity (Eq. 3): (S_T − S_0) / C_T, per $1,000
+- saturation fit (Eq. 4): Ŝ(C) = S0 + A C^h / (C^h + C50^h), binomial maximum likelihood
+- P_sat (Eq. 5): rise per dollar at the first checkpoint reaching 90 % of the fitted rise
+    - P_sat = 0 if 0.9 A < 10 points
+    - extrapolate up to 3× the final cost, otherwise report plasticity to date
+- budgets: 32 model calls per game and 240 s per tool call for the actor; 50 calls and 300 s per
+  Bash call for reflection
+- Hex: alpha–beta opponents, 10k–1M nodes (train / ID), 10M (OOD); 40 / 40 / 32 games per checkpoint
+- Go: GNU Go levels 5–9 (train / ID), 10 (OOD), komi 9.5, Chinese scoring; 20 / 20 / 12 games
 
-The gain lives in the saved tools, and the tools come from the game records. Without records the
-reflector chose not to spend its budget, so test 5 does not isolate extra reflection compute. The
-no-feedback lineages still work as a control on identical openings. With nothing changing, the control
-still fell from 72 % to 56 % held-out ID. A single lineage's curve can move that much without any learning.
-
-Thinking: the original runs kept no thinking. [Report 16](reports/16_thinking_replay.md) replays every
-saved reflection turn of all 13 runs with thinking summaries on ($9.40). Haiku returned a summary on
-96–100 % of turns, Sonnet on 0–89 %. The replayed turn matched the recorded calls in only 5–40 % of
-turns, so these summaries describe the model's reasoning on the same input, not the original run's.
-Runs from test 5 on record thinking summaries as they go.
-
-[Report 19](reports/19_thinking.md) reads those summaries for how learning happened. The lineages
-that learned tested new tool versions in games against the current one before installing them.
-Haiku reflected like an auditor (failure-mode bookkeeping, never a match between versions). One Go
-Sonnet lineage tested only against its own engines and kept installing unproven rewrites. With its
-final tools the actor thinks on 4–6 % of its turns; without them, on 66–70 %.
-
-## Layout
-
-```
-plasticity/   metric code (score, cost, fit, P_sat, bootstrap, pricing)
-envs/         6x6 Hex and 5x5 Go rules, opponents (alpha-beta, GNU Go over GTP), opening banks, move diagnostics
-harness/      sandbox, game API, inventory validator, prompts, episode, reflection, runner
-tests/        pytest suite
-scripts/      experiments that write the markdown files in reports/
-reports/      results
-docs/         protocol notes and deviations from the paper
-data/         opening banks (pooled, contested, fresh held-out)
-runs/         run output (git-ignored)
-```
-
-## How a lineage runs
+How a lineage runs here:
 
 ```
 checkpoint t, inventory I_t
@@ -168,26 +129,48 @@ checkpoint t, inventory I_t
        └─ validator: tracking schemas + every tool loads ─► I_{t+1}, or keep I_t after 3 rejections
 ```
 
-The scripted dry run (`uv run python scripts/dry_run_hex.py`) exercises all of this
-without an API: see [reports/06_dry_run.md](reports/06_dry_run.md).
-Deviations from the paper are listed in [docs/PROTOCOL_NOTES.md](docs/PROTOCOL_NOTES.md).
+**Open questions** (and what this repo assumes):
 
-## Usage
+- The Hex opening banks and the alpha–beta evaluation are not published. Openings here are
+  4-ply (red) / 5-ply (blue) from one pooled bank; with the paper's 10/11 plies games lasted
+  2–7 actor moves.
+- Go openings are not described ("training seeds change per checkpoint"). From the empty board
+  GNU Go as Black wins every 5×5 game, so short random openings are used, filtered by GNU Go 10
+  ([report 13](reports/13_go_calibration.md)).
+- Which program adjudicates dead stones in Go is not named. Assumed GNU Go 3.8's `final_score`.
+- The price table behind "fixed undiscounted input/output prices" is not given, and the price
+  table alone can reverse a ranking ([report 04](reports/04_pricing_sensitivity.md)).
+- The validator is described only as "persistent tool load" smoke checks. Here: tracking
+  schemas plus every saved tool must load.
+- The restricted Python's import whitelist is not given. Here `import` raises.
+- The opponents are deterministic and held-out openings fixed, so once a tool stops changing a
+  checkpoint replays the previous one move for move. Is a held-out game a new measurement?
+  Assumed not: tests use the opening as the unit, and plan D draws new held-out openings at
+  every checkpoint ([report 23](reports/23_repeated_games.md)).
+- Engines are Python, so Hex opponents search 3k–100k nodes (train / ID) and 1M (OOD), not the
+  paper's 10k–10M; games per checkpoint are 8 / 12 / 4 (Hex) and 8 / 20 / 4 (Go).
 
-```bash
-uv sync
-uv run pytest
-uv run python scripts/validate_recovery.py
+#### layout
+
+```
+plasticity/   metric code (score, cost, fit, P_sat, bootstrap, pricing)
+envs/         6x6 Hex and 5x5 Go rules, opponents (alpha-beta, GNU Go over GTP), opening banks, move diagnostics
+harness/      sandbox, game API, inventory validator, prompts, episode, reflection, runner
+tests/        pytest suite
+scripts/      experiments that write the markdown files in reports/
+reports/      results (01–25) and the technical report
+docs/         protocol notes, deviations from the paper, figures
+data/         opening banks (pooled, contested, fresh held-out)
+runs/         run output (git-ignored); the traces are on the Hugging Face dataset
 ```
 
-What you see:
+Data: every game, reflection and inventory is on the Hugging Face dataset
+[`Eve39570/agent-plasticity-hex-go`](https://huggingface.co/datasets/Eve39570/agent-plasticity-hex-go).
 
-```
-$ uv run pytest
-........................................................................ [ 43%]
-........................................................................ [ 87%]
-.....................                                                    [100%]
-177 passed
-$ uv run python scripts/validate_recovery.py
-wrote reports/01_parameter_recovery.md
-```
+#### todos
+
+- a third Go Sonnet lineage at effort high, to settle the Go model ranking (about $18–21)
+- concurrent feedback and no-feedback lineages (about $15–30)
+- a stricter test 5 that makes the reflector spend its budget without game records (about $15)
+- a second Opus 5.5 lineage for the Finding 2 probe (about $12–15)
+- chess and NetHack, and more of the paper's 8 models
